@@ -8,33 +8,35 @@ type Computer = {
   time?: string
 }
 
-const statusStyles: Record<ComputerStatus, { card: string; dot: string; text: string; pill: string; label: string; summary: string }> =
-  {
-    available: {
-      card: 'border-border bg-card',
-      dot: 'bg-green-600',
-      text: 'text-green-600',
-      pill: 'border-green-600/25 bg-green-600/10 text-green-600',
-      label: 'Disponível',
-      summary: 'disponíveis',
-    },
-    'in-use': {
-      card: 'border-rose-700/30 bg-rose-700/5',
-      dot: 'bg-rose-700',
-      text: 'text-rose-700',
-      pill: 'border-rose-700/25 bg-rose-700/10 text-rose-700',
-      label: 'Em uso',
-      summary: 'em uso',
-    },
-    maintenance: {
-      card: 'border-slate-500/30 bg-slate-500/5',
-      dot: 'bg-slate-500',
-      text: 'text-slate-500',
-      pill: 'border-slate-500/25 bg-slate-500/10 text-slate-500',
-      label: 'Manutenção',
-      summary: 'manutenção',
-    },
-  }
+const statusStyles: Record<
+  ComputerStatus,
+  { card: string; dot: string; text: string; pill: string; label: string; summary: string }
+> = {
+  available: {
+    card: 'border-border bg-card',
+    dot: 'bg-green-600',
+    text: 'text-green-600',
+    pill: 'border-green-600/25 bg-green-600/10 text-green-600',
+    label: 'Disponível',
+    summary: 'disponíveis',
+  },
+  'in-use': {
+    card: 'border-rose-700/30 bg-rose-700/5',
+    dot: 'bg-rose-700',
+    text: 'text-rose-700',
+    pill: 'border-rose-700/25 bg-rose-700/10 text-rose-700',
+    label: 'Em uso',
+    summary: 'em uso',
+  },
+  maintenance: {
+    card: 'border-slate-500/30 bg-slate-500/5',
+    dot: 'bg-slate-500',
+    text: 'text-slate-500',
+    pill: 'border-slate-500/25 bg-slate-500/10 text-slate-500',
+    label: 'Manutenção',
+    summary: 'manutenção',
+  },
+}
 
 const statusOrder: ComputerStatus[] = ['available', 'in-use', 'maintenance']
 
