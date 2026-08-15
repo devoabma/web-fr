@@ -15,8 +15,8 @@ export function Header() {
       <Image
         src="/assets/logo-oabma.png"
         alt="OAB Maranhão"
-        width={160}
-        height={160}
+        width={749}
+        height={206}
         priority
         className="h-auto w-24 sm:w-32 lg:w-40"
       />

@@ -7,7 +7,7 @@ export function HeroContent() {
   return (
     <div className="relative mx-auto max-w-220 px-4 pt-10 text-center sm:px-6 sm:pt-14 lg:pt-18.5">
       <Badge className="bg-white px-3 py-4 text-muted-foreground text-xs tracking-tight shadow-2xl" variant="outline">
-        <div className="mr-1.5 h-1.75 w-1.75 min-w-1.75 animate-pulse rounded-full bg-green-600" />
+        <div className="mr-1.5 size-1.5 min-w-1.5 animate-pulse rounded-full bg-green-600" />
         Plataforma de gestão de espaços tecnológicos
       </Badge>
 
@@ -25,7 +25,7 @@ export function HeroContent() {
         <Button
           className="h-12 w-full max-w-55.25 rounded-full font-bold text-[15.5px] shadow-[0_6px_18px_rgba(22,33,62,0.18)] transition-transform hover:-translate-y-0.5 sm:h-12.5"
           nativeButton={false}
-          render={<Link href="/painel" />}
+          render={<Link target="_blank" href="/auth/sign-in" />}
         >
           <ExternalLink className="mr-1.5 h-4 w-4" />
           Acessar o painel
