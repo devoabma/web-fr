@@ -27,6 +27,8 @@ A documentação de domínio (regras de negócio, fluxos, banco) é mantida na A
 - **Tailwind CSS v4** — tokens em `oklch`, sem arquivo de config
 - **shadcn** no estilo `base-nova`, sobre **`@base-ui/react`**
 - **lucide-react** (ícones) · **sonner** (notificações)
+- **React Hook Form + Zod** (`@hookform/resolvers`) — formulários e validação
+- **axios** — cliente HTTP da `api-fr` (adicionado; ainda sem uso)
 - **Biome 2.4** (lint + format) · **pnpm**
 
 ```bash
@@ -53,24 +55,37 @@ pnpm build
 ```
 src/
 ├── app/
-│   ├── layout.tsx                 # fonte, metadata, providers, fundo decorativo
+│   ├── layout.tsx                 # fonte, metadata, providers
 │   ├── page.tsx                   # composição da landing
-│   ├── styles/globals.css         # tokens do tema (:root e .dark)
-│   └── (internal-layout)/
+│   ├── not-found.tsx              # 404 do produto
+│   ├── (public)/                  # rotas sem sessão
+│   │   └── auth/
+│   │       ├── layout.tsx         # split: painel de marca + área de formulário
+│   │       ├── sign-in/           # login (page + _components)
+│   │       └── sign-up/           # placeholder
+│   └── (private)/                 # painel autenticado
 │       └── _components/shared/    # providers de cliente (ClientProviders)
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
 │   └── ui/                        # primitivas shadcn/base-ui
+├── styles/globals.css             # tokens do tema (:root e .dark)
+├── utils/
+│   ├── masks/                     # máscaras de entrada (CPF)
+│   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/utils.ts                   # cn() — clsx + tailwind-merge
 ```
 
 **Convenções:**
 
 - Um arquivo por seção em `src/components/app/`, kebab-case, **export nomeado**.
-- Server Components por padrão. `'use client'` só onde há estado, evento ou API de browser.
+- Componentes de uma rota específica ficam em `_components/` dentro da própria rota.
+- Grupos de rota: `(public)` para o que não exige sessão, `(private)` para o painel. Parênteses não entram na URL.
+- Server Components por padrão. `'use client'` só onde há estado, evento ou API de browser — e isolado no
+  menor componente possível (ex.: `back-button.tsx`), para a página continuar estática.
 - Cores sempre por **token do tema** (`text-primary`, `text-muted-foreground`, `bg-card`, `border`) — nunca hex.
 - Escala numérica do Tailwind v4 (`max-w-310`, `pt-18.5`) em vez de valores arbitrários quando possível.
 - `cn()` para classes condicionais.
+- Validação com Zod; o que for reaproveitável entre telas mora em `src/utils/schemas/`.
 
 **Formatação (`biome.json`):** aspas simples no TS, duplas no JSX, **sem ponto e vírgula**, largura 130,
 `arrowParentheses: asNeeded`, trailing comma `es5`. `organizeImports` e `useSortedClasses` são **erro** —
@@ -128,6 +143,10 @@ Tetos de rate limit relevantes ao painel:
 > O login é o caso mais sensível: cinco tentativas por 10 minutos contadas por IP + CPF. Um usuário que
 > erra a senha algumas vezes bate o teto — a UI precisa dizer quanto falta esperar, não apenas "erro".
 
+Por isso a tela de login valida **CPF (com dígitos verificadores) e tamanho de senha no cliente**: dado
+malformado não pode consumir uma das cinco tentativas. O bloco `errors.root` do formulário é o lugar
+reservado para as mensagens de `400` e `429` quando a integração existir.
+
 ---
 
 ## ⚠️ Lacunas da API que travam telas deste painel
@@ -145,15 +164,32 @@ Confirmar antes de planejar as telas correspondentes.
 
 ---
 
+## 🧭 Rotas do front
+
+| Rota | Grupo | Estado |
+| --- | --- | --- |
+| `/` | — | landing pública, pronta |
+| `/auth/sign-in` | `(public)` | UI pronta; **não autentica** — `handleSignIn` só faz `console.log` |
+| `/auth/sign-up` | `(public)` | placeholder; cadastro real é ação de `ADMIN` no painel |
+| `/auth/forgot-password` | — | **linkada pelo login, não existe** |
+| `/privacidade`, `/suporte`, `/status` | — | **linkadas pelo rodapé, não existem** |
+| `not-found.tsx` | — | 404 do produto, pronta |
+
+---
+
 ## 🎨 Origem do design
 
-A landing derivou do projeto **Claude Design "Sala Livre"**
-(`c3a63c9a-47ad-47c7-8349-2d496f96c4f4`). Divergências deliberadas em relação ao design original:
+A landing, a tela de login e a 404 derivaram do projeto **Claude Design "Sala Livre"**
+(`c3a63c9a-47ad-47c7-8349-2d496f96c4f4`, arquivos `Sala Livre - Home`, `- Login` e `- 404`).
+Divergências deliberadas em relação ao design original:
 
-- O botão "Acessar painel" do cabeçalho foi substituído pela **logo da OAB-MA**.
+- O botão "Acessar painel" do cabeçalho foi substituído pela **logo da OAB-MA** — inclusive na 404, que
+  reaproveita o `Header` real em vez do nav próprio do design.
 - Ícones lucide substituem os glifos tipográficos (`⌁ ◷ ⎙ ◳`) dos cards de diferenciais.
 - Os contadores da prévia do painel são derivados dos dados, não literais.
 - Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`.
+- O símbolo da marca é o componente `BrandMark` (SVG com `currentColor`), não um arquivo de imagem — é o
+  que permite usá-lo em branco no login, esmaecido na 404 e como marca d'água.
 
 ---
 

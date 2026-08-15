@@ -9,17 +9,19 @@
 ## 0. Fundação
 
 - [x] Projeto Next.js 16 (App Router + Turbopack) com React Compiler
-- [x] Tailwind CSS v4 com tokens de tema em `oklch` (`src/app/styles/globals.css`), variantes clara e escura
+- [x] Tailwind CSS v4 com tokens de tema em `oklch` (`src/styles/globals.css`), variantes clara e escura
 - [x] shadcn no estilo `base-nova` sobre `@base-ui/react` (`components.json`)
 - [x] Helper `cn()` (clsx + tailwind-merge) em `src/lib/utils.ts`
 - [x] Convenções de lint/format no `biome.json` (largura 130, sem ponto e vírgula, `useSortedClasses` como erro)
 - [x] Layout raiz: fonte Space Grotesk, metadata do produto, favicon, `ClientProviders` com o `Toaster`
 - [x] OpenSpec inicializado (`openspec/`, comandos `/opsx:*`)
 - [x] Documentação do repositório (`docs/DOC.md`, `docs/ROADMAP.md`)
+- [x] Grupos de rota `(public)` e `(private)` separando o que exige sessão
+- [x] Validação e máscara de CPF reutilizáveis (`src/utils/schemas/`, `src/utils/masks/`)
 - [ ] Cliente HTTP da `api-fr` (base URL por env, injeção do token, tratamento de `400`/`401`/`429`)
 - [ ] Variáveis de ambiente validadas (`.env.example` + schema)
 - [ ] Camada de dados (React Query ou Server Actions — decisão pendente)
-- [ ] Tratamento global de erro e estados de carregamento (`error.tsx`, `loading.tsx`)
+- [~] Tratamento global de erro e estados de carregamento — `not-found.tsx` pronto; falta `error.tsx` e `loading.tsx`
 - [ ] Deploy
 
 ---
@@ -32,7 +34,9 @@
 - [x] Seção de diferenciais (4 cards)
 - [x] Rodapé com copyright e navegação
 - [x] Responsividade mobile-first em todas as seções
-- [ ] Rotas do rodapé: `/privacidade`, `/suporte`, `/status`
+- [x] Página 404 (`not-found.tsx`) na identidade do produto, reaproveitando cabeçalho e rodapé, com retorno
+      pelo histórico e destino alternativo quando não há histórico
+- [ ] Rotas do rodapé: `/privacidade`, `/suporte`, `/status` — hoje caem na 404
 - [ ] Conferência em viewport real (320px / 768px / 1440px)
 - [ ] Validação de contraste dos estados
 
@@ -40,12 +44,18 @@
 
 ## 2. Autenticação
 
-- [ ] Tela de login (`POST /employees/session/auth`)
+- [~] Tela de login `/auth/sign-in` — UI, validação e estados prontos; `handleSignIn` ainda não chama
+      `POST /employees/session/auth`
+- [x] Validação local do CPF (dígitos verificadores) e máscara progressiva
+- [x] Layout split com painel de marca, responsivo (formulário primeiro no mobile)
+- [x] Estados de envio, erro por campo e slot de erro geral (`errors.root`)
+- [ ] Integrar `POST /employees/session/auth`
 - [ ] Persistência da sessão e injeção do token nas requisições
 - [ ] Proteção de rotas do painel e redirecionamento de não autenticados
 - [ ] Leitura do `role` para exibição condicional de ações (ADMIN vs MEMBER)
 - [ ] Tratamento do `429` no login, exibindo o tempo de espera (`retryAfterInSeconds`)
-- [ ] Esqueci minha senha (`POST /employees/password-recovery`)
+- [ ] Esqueci minha senha (`POST /employees/password-recovery`) — rota `/auth/forgot-password` já linkada
+      pela tela de login, mas inexistente
 - [ ] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`)
 - [ ] Trocar senha do usuário logado (`PATCH /employees/change-password`)
 - [ ] Logout
