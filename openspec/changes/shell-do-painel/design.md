@@ -89,6 +89,27 @@ A criação de funcionário é `POST /employees/create-account`, ação restrita
 painel. Não existe auto-cadastro no produto. A rota placeholder herdada sugeria um fluxo que nunca vai
 existir, e apareceria em qualquer varredura de rotas como trabalho pendente.
 
+### A marca da sidebar aponta para `/panel`, não para `/`
+
+Dentro de um painel a marca é o atalho para a tela inicial **do painel**. Apontar para `/` era o reflexo da
+landing e tirava o usuário da área autenticada por um clique em algo que parece um "início" — e a landing
+não tem nada a oferecer a quem já entrou. A saída para fora do produto é o logout, uma ação explícita, não
+um efeito colateral da marca.
+
+### "Administração" será escondida de `MEMBER`, não desabilitada
+
+A regra já está escrita na integração: as listagens usam rota única por papel e "o front deve **esconder
+ações**, não duplicar rotas". Um item desabilitado anuncia uma capacidade que o `MEMBER` nunca vai ter —
+gera pergunta a quem dá suporte e sugere que falta permissão a conceder, quando na verdade o papel é outro.
+Como `NAV_SECTIONS` é dado, o corte é um filtro sobre o array, não uma alteração no JSX.
+
+### `/panel` é o nome definitivo
+
+As URLs do produto ficam em **inglês** (`/auth/sign-in`, `/panel`, `/admin/rooms`); o texto de interface
+fica em **português**. O `/painel` do roadmap era descrição informal escrita antes da rota existir, não uma
+decisão — foi corrigido lá. Misturar os dois idiomas nos endereços obrigaria a decidir caso a caso em cada
+rota nova ("/impressoes" ou "/printers"?), e renomear depois custa redirecionamentos.
+
 ## Risks / Trade-offs
 
 - **`/panel` sai do pré-render.** A leitura do cookie torna a rota dinâmica. A alternativa — não persistir
@@ -99,8 +120,8 @@ existir, e apareceria em qualquer varredura de rotas como trabalho pendente.
 - **Cinco das seis rotas da sidebar não existem.** Clicar em "Impressões", "Liberações", "Salas",
   "Computadores" ou "Colaboradores" cai na 404. É navegação declarada antes das telas, deliberadamente.
 - **Nome de usuário e avatar fixos em produção** se a change seguinte não os substituir.
-- **A marca do painel leva a `/`.** Clicar na marca dentro da sidebar tira o usuário do painel e o joga na
-  landing pública — comportamento correto para um site institucional, discutível dentro de um painel.
+- **Não há caminho de volta à landing de dentro do painel.** Com a marca apontando para `/panel`, sair do
+  produto depende do logout, que ainda não existe.
 - **Tokens `--sidebar-*` divergiram do padrão shadcn.** Um `shadcn add` futuro que reinstale os tokens
   desfaz a identidade; a alteração vive em `globals.css` e precisa ser reconferida em atualizações.
 
@@ -113,8 +134,5 @@ O cookie `sidebar_state` é criado na primeira interação; sua ausência é tra
 
 ## Open Questions
 
-- A marca dentro da sidebar deve apontar para `/panel` em vez de `/`?
-- A seção "Administração" deve ser escondida ou apenas desabilitada para `MEMBER`?
-- `/panel` é o nome definitivo? O roadmap descrevia a rota como `/painel`, e o restante das URLs do produto
-  está em inglês (`/auth/sign-in`, `/admin/rooms`).
-- A barra superior precisa de breadcrumb, ou o título da área dentro de cada página basta?
+- A barra superior precisa de breadcrumb, ou o título da área dentro de cada página basta? Só dá para
+  responder quando existirem telas de detalhe — hoje a navegação tem um nível só.

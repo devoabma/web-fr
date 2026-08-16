@@ -74,7 +74,7 @@
 - [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px
 - [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
 - [ ] Bloco de usuário da barra superior com dados da sessão (hoje nome e avatar fixos, via `github.com`)
-- [ ] Filtrar a seção "Administração" pelo `role` (`ADMIN` vs `MEMBER`)
+- [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado)
 - [ ] Criar as cinco áreas que a sidebar já referencia — hoje `/printers`, `/releases`, `/admin/rooms`,
       `/admin/computers` e `/admin/employees` caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado

@@ -22,6 +22,8 @@
 - [x] 3.1 Instalar as primitivas `sidebar`, `sheet`, `tooltip` e `skeleton` e o hook `use-mobile`
 - [x] 3.2 Criar `_components/shared/panel-sidebar/index.tsx` com `collapsible="icon"`
 - [x] 3.3 Cabeçalho da sidebar alinhado à altura da barra superior (48px), com `BrandMark` e nome do produto
+- [x] 3.3.1 Apontar a marca para `/panel` — dentro do painel ela é o atalho para a tela inicial do painel,
+      não para a landing
 - [x] 3.4 Esconder o texto da marca no modo ícone (`group-data-[collapsible=icon]:hidden`)
 - [x] 3.5 Brilho radial no topo como elemento decorativo com `aria-hidden`
 - [x] 3.6 Marca d'água com o `BrandMark` no rodapé, suprimida no modo ícone
@@ -71,7 +73,7 @@
 - [ ] 9.1 Guarda de sessão no grupo `(private)` e redirecionamento de não autenticados
 - [ ] 9.2 Substituir o bloco de usuário provisório por dados da sessão, retirando `github.com` do
       `next.config.ts`
-- [ ] 9.3 Filtrar a seção "Administração" pelo `role` do funcionário
+- [ ] 9.3 **Esconder** a seção "Administração" de `MEMBER` — filtro sobre `NAV_SECTIONS`, não item desabilitado
 - [ ] 9.4 Criar as cinco rotas que a sidebar já referencia e hoje caem na 404
 - [ ] 9.5 Levar o hero da landing e o login para `/panel` depois da autenticação
 - [ ] 9.6 `loading.tsx` por área do painel, com o `skeleton` já instalado

@@ -28,7 +28,7 @@ export function PanelSidebar({ ...props }: PanelSidebarProps) {
       />
 
       <SidebarHeader className="relative h-12 justify-center border-sidebar-border border-b px-2 py-0">
-        <Link href="/" className="flex items-center gap-2.5 sm:justify-center">
+        <Link href="/panel" className="flex items-center gap-2.5 sm:justify-center">
           <BrandMark className="size-8 shrink-0 text-white" />
           <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <h1 className="truncate font-bold text-base text-white tracking-tight">Sala Livre</h1>

@@ -84,6 +84,8 @@ src/
 - Um arquivo por seção em `src/components/app/`, kebab-case, **export nomeado**.
 - Componentes de uma rota específica ficam em `_components/` dentro da própria rota.
 - Grupos de rota: `(public)` para o que não exige sessão, `(private)` para o painel. Parênteses não entram na URL.
+- **URLs em inglês, interface em português** — `/panel`, `/auth/sign-in`, `/admin/rooms`; os rótulos que o
+  usuário lê são "Painel", "Salas". Decidir o idioma por rota custa renomeação e redirecionamento depois.
 - **Só `src/app/layout.tsx` declara `<html>`, `<body>`, a fonte e o `globals.css`.** Layout de grupo de rota
   é layout aninhado: redeclarar o documento renderiza um HTML dentro do outro e duplica os providers — dois
   `<Toaster>` montados fazem cada notificação aparecer duas vezes.
@@ -195,7 +197,9 @@ Confirmar antes de planejar as telas correspondentes.
 
 O `(private)/layout.tsx` monta sidebar + barra superior + área de conteúdo com rolagem própria. A navegação
 mora em `_components/shared/panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas
-seções — Operação e Administração — e é onde o corte por `role` vai entrar.
+seções — Operação e Administração — e é onde o corte por `role` vai entrar: a seção "Administração" será
+**escondida** de `MEMBER` por um filtro sobre o array, seguindo a mesma regra das ações (esconder, não
+desabilitar). A marca no topo da sidebar aponta para `/panel`, não para a landing.
 
 O recolhimento da sidebar é persistido no cookie `sidebar_state`. A primitiva **grava** esse cookie, mas
 não o lê: quem lê é o layout, com `cookies()` do `next/headers`, repassando o valor como `defaultOpen`. Sem
