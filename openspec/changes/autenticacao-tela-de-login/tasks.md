@@ -63,4 +63,5 @@
 - [ ] 8.3 Exibir o tempo de espera do `429` (`retryAfterInSeconds`) no bloco de erro geral
 - [ ] 8.4 Persistir a sessão e proteger o grupo `(private)`
 - [ ] 8.5 Implementar `/auth/forgot-password`, hoje linkada e inexistente
-- [ ] 8.6 Decidir o destino de `/auth/sign-up`
+- [x] 8.6 Decidir o destino de `/auth/sign-up` — **removida** na change `shell-do-painel`: não há
+      auto-cadastro no produto, o cadastro de funcionário é ação de `ADMIN` dentro do painel

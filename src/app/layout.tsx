@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   },
   description: 'Uma plataforma de gestão inteligente das salas da advocacia.',
   icons: {
-    icon: '/fr.svg',
+    icon: '/fr-icon.svg',
   },
 }
 

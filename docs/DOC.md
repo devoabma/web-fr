@@ -55,19 +55,23 @@ pnpm build
 ```
 src/
 ├── app/
-│   ├── layout.tsx                 # fonte, metadata, providers
+│   ├── layout.tsx                 # ÚNICO documento HTML: fonte, globals.css, metadata, providers
 │   ├── page.tsx                   # composição da landing
 │   ├── not-found.tsx              # 404 do produto
 │   ├── (public)/                  # rotas sem sessão
 │   │   └── auth/
 │   │       ├── layout.tsx         # split: painel de marca + área de formulário
-│   │       ├── sign-in/           # login (page + _components)
-│   │       └── sign-up/           # placeholder
+│   │       └── sign-in/           # login (page + _components)
 │   └── (private)/                 # painel autenticado
-│       └── _components/shared/    # providers de cliente (ClientProviders)
+│       ├── layout.tsx             # shell: sidebar + barra superior + área de conteúdo
+│       ├── panel/                 # /panel — placeholder
+│       └── _components/shared/
+│           ├── client-providers.tsx
+│           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
 │   └── ui/                        # primitivas shadcn/base-ui
+├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── masks/                     # máscaras de entrada (CPF)
@@ -80,8 +84,12 @@ src/
 - Um arquivo por seção em `src/components/app/`, kebab-case, **export nomeado**.
 - Componentes de uma rota específica ficam em `_components/` dentro da própria rota.
 - Grupos de rota: `(public)` para o que não exige sessão, `(private)` para o painel. Parênteses não entram na URL.
+- **Só `src/app/layout.tsx` declara `<html>`, `<body>`, a fonte e o `globals.css`.** Layout de grupo de rota
+  é layout aninhado: redeclarar o documento renderiza um HTML dentro do outro e duplica os providers — dois
+  `<Toaster>` montados fazem cada notificação aparecer duas vezes.
 - Server Components por padrão. `'use client'` só onde há estado, evento ou API de browser — e isolado no
-  menor componente possível (ex.: `back-button.tsx`), para a página continuar estática.
+  menor componente possível (ex.: `back-button.tsx`, `toggle-sidebar-button.tsx`), para a página continuar
+  estática. A diretiva vai **no próprio arquivo** que precisa dela, não herdada do importador.
 - Cores sempre por **token do tema** (`text-primary`, `text-muted-foreground`, `bg-card`, `border`) — nunca hex.
 - Escala numérica do Tailwind v4 (`max-w-310`, `pt-18.5`) em vez de valores arbitrários quando possível.
 - `cn()` para classes condicionais.
@@ -170,10 +178,29 @@ Confirmar antes de planejar as telas correspondentes.
 | --- | --- | --- |
 | `/` | — | landing pública, pronta |
 | `/auth/sign-in` | `(public)` | UI pronta; **não autentica** — `handleSignIn` só faz `console.log` |
-| `/auth/sign-up` | `(public)` | placeholder; cadastro real é ação de `ADMIN` no painel |
+| `/panel` | `(private)` | shell pronto, conteúdo placeholder; **sem guarda de sessão** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
+| `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
+| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem** |
 | `/privacidade`, `/suporte`, `/status` | — | **linkadas pelo rodapé, não existem** |
 | `not-found.tsx` | — | 404 do produto, pronta |
+
+> Não existe `/auth/sign-up`: cadastro de funcionário é `POST /employees/create-account`, ação restrita a
+> `ADMIN` dentro do painel. Não há auto-cadastro no produto.
+
+> **Nada aponta para `/panel` ainda** — o hero da landing e a 404 levam a `/auth/sign-in`. O painel só é
+> alcançável digitando o endereço, e responde a qualquer visitante.
+
+### Shell do painel
+
+O `(private)/layout.tsx` monta sidebar + barra superior + área de conteúdo com rolagem própria. A navegação
+mora em `_components/shared/panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas
+seções — Operação e Administração — e é onde o corte por `role` vai entrar.
+
+O recolhimento da sidebar é persistido no cookie `sidebar_state`. A primitiva **grava** esse cookie, mas
+não o lê: quem lê é o layout, com `cookies()` do `next/headers`, repassando o valor como `defaultOpen`. Sem
+essa leitura a persistência seria só escrita e a sidebar voltaria aberta a cada recarga. É por isso que
+`/panel` aparece como `ƒ` (sob demanda) no build, e não como estática.
 
 ---
 
@@ -189,7 +216,13 @@ Divergências deliberadas em relação ao design original:
 - Os contadores da prévia do painel são derivados dos dados, não literais.
 - Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`.
 - O símbolo da marca é o componente `BrandMark` (SVG com `currentColor`), não um arquivo de imagem — é o
-  que permite usá-lo em branco no login, esmaecido na 404 e como marca d'água.
+  que permite usá-lo em branco no login, esmaecido na 404 e como marca d'água na sidebar.
+
+O **shell do painel** não veio do Claude Design: nasceu da sidebar do shadcn, reencaixada na identidade do
+produto. Os tokens `--sidebar-*` que o shadcn instala são cinza neutro e foram reescritos para o azul
+profundo da marca, com `--sidebar-accent` em branco translúcido — o realce do item ativo funciona sobre o
+azul sem exigir um segundo tom calibrado à mão. Um `shadcn add` que reinstale esses tokens desfaz a
+identidade; conferir `globals.css` depois de atualizar primitivas.
 
 ---
 

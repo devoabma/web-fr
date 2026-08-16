@@ -17,6 +17,8 @@
 - [x] OpenSpec inicializado (`openspec/`, comandos `/opsx:*`)
 - [x] Documentação do repositório (`docs/DOC.md`, `docs/ROADMAP.md`)
 - [x] Grupos de rota `(public)` e `(private)` separando o que exige sessão
+- [x] Layout privado deixou de duplicar o documento HTML do layout raiz (fonte, `globals.css` e `Toaster`
+      agora só na raiz)
 - [x] Validação e máscara de CPF reutilizáveis (`src/utils/schemas/`, `src/utils/masks/`)
 - [ ] Cliente HTTP da `api-fr` (base URL por env, injeção do token, tratamento de `400`/`401`/`429`)
 - [ ] Variáveis de ambiente validadas (`.env.example` + schema)
@@ -62,9 +64,27 @@
 
 ---
 
-## 3. Painel — visão da sala
+## 3. Painel — moldura e navegação
 
-- [ ] Rota `/painel` (destino da chamada do hero)
+- [x] Shell do painel em `(private)/layout.tsx`: sidebar + barra superior + área de conteúdo com rolagem própria
+- [x] Sidebar colapsável para faixa de ícones, nas cores da marca (tokens `--sidebar-*` reescritos)
+- [x] Navegação em duas seções — Operação e Administração — declarada como dado (`NAV_SECTIONS`)
+- [x] Item ativo por `usePathname`, casando rotas de detalhe, com `aria-current="page"`
+- [x] Recolhimento preservado entre recargas: cookie `sidebar_state` lido no servidor como `defaultOpen`
+- [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px
+- [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
+- [ ] Bloco de usuário da barra superior com dados da sessão (hoje nome e avatar fixos, via `github.com`)
+- [ ] Filtrar a seção "Administração" pelo `role` (`ADMIN` vs `MEMBER`)
+- [ ] Criar as cinco áreas que a sidebar já referencia — hoje `/printers`, `/releases`, `/admin/rooms`,
+      `/admin/computers` e `/admin/employees` caem na 404
+- [ ] `loading.tsx` por área, com o `skeleton` já instalado
+- [ ] Levar o hero da landing e o login para `/panel` (o hero ainda aponta para `/auth/sign-in`)
+- [ ] Conferir contraste dos itens ativo/inativo sobre o azul, nos temas claro e escuro
+
+---
+
+## 4. Painel — visão da sala
+
 - [ ] Seleção de sala a partir de `GET /rooms/get-all` (escopo já filtrado por papel na API)
 - [ ] Grade de computadores com os três estados em tempo quase real
 - [ ] Colocar/retirar de manutenção (`PATCH /computers/maintenance/:id` e `.../remove`)
@@ -74,7 +94,7 @@
 
 ---
 
-## 4. Gestão (ADMIN)
+## 5. Gestão (ADMIN)
 
 ### Funcionários
 - [ ] Listar (`GET /employees/get-all`) — **sem paginação na API**
@@ -98,7 +118,7 @@
 
 ---
 
-## 5. Fila de impressão
+## 6. Fila de impressão
 
 - [ ] Listar impressões da(s) sala(s) do funcionário (`GET /printers/get-all/:roomId?`)
 - [ ] Aviso de expurgo semanal (sexta-feira, 23:59:59)
@@ -107,7 +127,7 @@
 
 ---
 
-## 6. Histórico e relatórios
+## 7. Histórico e relatórios
 
 - [ ] Listar sessões (`GET /lawyers/get-all-releases/:roomId?`) com filtros por advogado e data
 - [ ] ⛔ Uso por sala e computador — **bloqueado: não implementado na API**
@@ -116,7 +136,7 @@
 
 ---
 
-## 7. Tempo real
+## 8. Tempo real
 
 - [ ] ⛔ Consumir eventos da API por WebSocket — **bloqueado**: o canal atual é Desktop↔API, não é
       autenticado e não emite `computer_released` / `session_started`. Até lá, polling.
