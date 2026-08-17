@@ -1,8 +1,8 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { BrandMark } from '@/components/app/brand-mark'
 import { Badge } from '@/components/ui/badge'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PanelUser } from './panel-user'
 
 export function PanelHeader() {
   return (
@@ -30,26 +30,15 @@ export function PanelHeader() {
         </Link>
       </div>
 
-      {/* Criar um componete para o usuário logado, com foto, nome e status do sistema (online/offline) e colocar no canto superior direito do painel. */}
       <div className="relative flex items-center gap-3">
         {/* Branco translúcido, e não `bg-primary`: no tema claro `--primary` é o mesmo azul de `--sidebar`. */}
+        {/* TODO: status real do sistema — hoje é fixo, ainda não há healthcheck consultado pelo painel. */}
         <Badge className="border-white/15 bg-white/10 text-sidebar-foreground">
           <span className="size-1.5 min-w-1.5 animate-pulse rounded-full bg-emerald-400" />
           All OK
         </Badge>
 
-        <p className="hidden text-sidebar-foreground/80 text-sm sm:block">Hilquias Ferreira Melo</p>
-
-        <div className="relative size-8 overflow-hidden rounded-md ring-1 ring-white/15">
-          <Image
-            src="https://github.com/hfmelodev.png"
-            alt="Hilquias Ferreira Melo"
-            fill
-            sizes="32px"
-            className="object-cover"
-            priority
-          />
-        </div>
+        <PanelUser />
       </div>
     </header>
   )

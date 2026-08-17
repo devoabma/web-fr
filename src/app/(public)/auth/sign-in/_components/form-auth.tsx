@@ -1,17 +1,41 @@
 'use client'
 
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { LoaderCircleIcon, LogInIcon, TriangleAlertIcon } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Controller } from 'react-hook-form'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { PANEL_ROUTE, REDIRECT_PARAM } from '@/lib/auth/routes'
+import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
+import { signIn } from '@/server/employees/sign-in'
 import { maskCpf } from '@/utils/masks/cpf'
 import { type LoginFormType, useLoginForm } from './form-auth-schema'
 
+/**
+ * Destino pós-login: a rota que o `proxy.ts` guardou ao barrar o visitante, ou o painel.
+ *
+ * O valor vem da query string, então é entrada de quem monta o link. Só caminho interno é aceito —
+ * `https://evil.com` e `//evil.com` são URLs absolutas para o navegador e virariam um open redirect
+ * disfarçado de link de login.
+ */
+function resolveRedirectTarget() {
+  const raw = new URLSearchParams(window.location.search).get(REDIRECT_PARAM)
+
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return PANEL_ROUTE
+
+  return raw
+}
+
 export function FormAuth() {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
   const form = useLoginForm({ cpf: '', password: '', remember: true })
@@ -19,12 +43,52 @@ export function FormAuth() {
   const {
     control,
     register,
+    setError,
+    clearErrors,
+    resetField,
+    setFocus,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = form
 
+  const { mutateAsync: authenticate } = useMutation({
+    mutationFn: signIn,
+  })
+
   async function handleSignIn(data: LoginFormType) {
-    console.log(data)
+    clearErrors('root')
+
+    try {
+      await authenticate({
+        cpf: data.cpf,
+        password: data.password,
+      })
+
+      // Sessão nova, cache velho: sem isto o perfil do usuário anterior sobreviveria na mesma aba
+      // (o `getProfile` roda com `staleTime` infinito) e o painel abriria com o nome de quem saiu.
+      queryClient.clear()
+
+      toast.success('Acesso concedido.', {
+        description: 'Bem-vindo(a) ao Sala Livre.',
+      })
+
+      router.replace(resolveRedirectTarget())
+    } catch (err) {
+      // Só a senha é descartada: limpar o formulário inteiro obrigaria a redigitar o CPF a cada tentativa,
+      // e são apenas cinco antes do bloqueio de 10 minutos.
+      resetField('password')
+
+      const retryAfterInSeconds = getRetryAfterInSeconds(err)
+
+      // O teto do login é de 5 tentativas por 10 minutos (IP + CPF). Dizer só "erro" deixaria o usuário
+      // insistindo contra uma porta fechada — ele precisa saber quanto falta.
+      const message = retryAfterInSeconds
+        ? `Muitas tentativas de acesso. Tente novamente em ${formatWaitTime(retryAfterInSeconds)}.`
+        : getApiErrorMessage(err, 'Não foi possível entrar agora. Verifique sua conexão e tente novamente.')
+
+      setError('root', { message })
+      setFocus('password')
+    }
   }
 
   return (

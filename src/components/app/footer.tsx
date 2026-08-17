@@ -1,8 +1,11 @@
 import Link from 'next/link'
 
+// URLs em inglês, rótulos em português — a convenção do repositório. Estes três caminhos precisam casar
+// com `PUBLIC_ROUTES`: sob a regra de negar por padrão do `proxy.ts`, um link de rodapé fora da lista
+// manda o visitante para o login em vez de mostrar a 404.
 const links = [
-  { label: 'Privacidade', href: '/privacidade' },
-  { label: 'Suporte', href: '/suporte' },
+  { label: 'Privacidade', href: '/privacy' },
+  { label: 'Suporte', href: '/support' },
   { label: 'Status', href: '/status' },
 ]
 

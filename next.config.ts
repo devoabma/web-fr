@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         hostname: 'github.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'fniwexxypbvxitmmamup.supabase.co',
+        pathname: '/**',
+      },
     ],
   },
 }
