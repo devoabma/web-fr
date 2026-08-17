@@ -63,10 +63,11 @@ src/
 │   │       ├── layout.tsx         # split: painel de marca + área de formulário
 │   │       └── sign-in/           # login (page + _components)
 │   └── (private)/                 # painel autenticado
-│       ├── layout.tsx             # shell: sidebar + barra superior + área de conteúdo
+│       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — placeholder
 │       └── _components/shared/
 │           ├── client-providers.tsx
+│           ├── panel-header/      # barra superior: marca, gatilho mobile e bloco de usuário
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
@@ -195,16 +196,43 @@ Confirmar antes de planejar as telas correspondentes.
 
 ### Shell do painel
 
-O `(private)/layout.tsx` monta sidebar + barra superior + área de conteúdo com rolagem própria. A navegação
-mora em `_components/shared/panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas
-seções — Operação e Administração — e é onde o corte por `role` vai entrar: a seção "Administração" será
+O `(private)/layout.tsx` monta o shell em **"T"**: a barra superior (`panel-header/`) atravessa a largura
+inteira e, abaixo dela, a navegação lateral (`panel-sidebar/`) e a área de conteúdo com rolagem própria. A
+marca do produto mora na barra superior — assim continua visível com a sidebar recolhida à faixa de ícones —
+e aponta para `/panel`, não para a landing.
+
+A navegação mora em `panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas seções —
+Operação e Administração — e é onde o corte por `role` vai entrar: a seção "Administração" será
 **escondida** de `MEMBER` por um filtro sobre o array, seguindo a mesma regra das ações (esconder, não
-desabilitar). A marca no topo da sidebar aponta para `/panel`, não para a landing.
+desabilitar).
 
 O recolhimento da sidebar é persistido no cookie `sidebar_state`. A primitiva **grava** esse cookie, mas
 não o lê: quem lê é o layout, com `cookies()` do `next/headers`, repassando o valor como `defaultOpen`. Sem
 essa leitura a persistência seria só escrita e a sidebar voltaria aberta a cada recarga. É por isso que
 `/panel` aparece como `ƒ` (sob demanda) no build, e não como estática.
+
+> ⚠️ **`src/components/ui/sidebar.tsx` não é mais a primitiva original.** Três alterações locais sustentam
+> o arranjo em "T" e um `shadcn add sidebar` desfaz as três:
+>
+> 1. **`--sidebar-offset`** — o container da sidebar é `fixed` e passaria por baixo do header. A variável
+>    é declarada no provider com padrão `0rem` (arranjo padrão do shadcn preservado) e sobrescrita pelo
+>    layout do painel com a altura do header. A sidebar então começa em `top-(--sidebar-offset)` e mede
+>    `calc(100svh - var(--sidebar-offset))`. A altura vive em dois lugares — `h-12` no `PanelHeader` e a
+>    constante `HEADER_HEIGHT` no layout: mudar um sem o outro descola a sidebar do header.
+> 2. **`TooltipProvider` com `delay={0}`** — no modo de faixa de ícones o tooltip é o único rótulo do item,
+>    e o padrão do base-ui é 600ms de espera.
+> 3. **Posicionamento `top`/`bottom`** no lugar de `inset-y-0`.
+
+O `SidebarTrigger` da barra superior existe só abaixo de 768px (`md:hidden`), onde a sidebar vira `Sheet`.
+Sem ele a navegação só abria por `Ctrl/Cmd+B` — atalho que não existe no toque, justamente o contexto dessas
+larguras.
+
+Realces sobre a barra superior e a sidebar usam **branco translúcido**, nunca `bg-primary`: no tema claro
+`--primary` e `--sidebar` são o mesmo azul, e um elemento `bg-primary` desapareceria dentro da superfície
+de marca. É a mesma regra já aplicada em `--sidebar-accent`.
+
+A marca da barra superior é `<span>`, não `<h1>`. Como ela é parte da moldura, um `h1` ali daria a toda tela
+do painel um cabeçalho de nível 1 sem relação com o conteúdo — o `h1` pertence a cada `page.tsx`.
 
 ---
 
@@ -226,7 +254,12 @@ O **shell do painel** não veio do Claude Design: nasceu da sidebar do shadcn, r
 produto. Os tokens `--sidebar-*` que o shadcn instala são cinza neutro e foram reescritos para o azul
 profundo da marca, com `--sidebar-accent` em branco translúcido — o realce do item ativo funciona sobre o
 azul sem exigir um segundo tom calibrado à mão. Um `shadcn add` que reinstale esses tokens desfaz a
-identidade; conferir `globals.css` depois de atualizar primitivas.
+identidade; conferir `globals.css` **e `src/components/ui/sidebar.tsx`** depois de atualizar primitivas.
+
+O arranjo também diverge do shadcn: lá a barra superior fica dentro do `SidebarInset`, começando só depois
+da sidebar. Isso partia a identidade do produto em duas colunas — marca no topo da sidebar, bloco de usuário
+no topo do conteúdo, cada um com sua altura para alinhar à mão. Com a barra atravessando o topo, a moldura
+tem uma faixa de marca só.
 
 ---
 

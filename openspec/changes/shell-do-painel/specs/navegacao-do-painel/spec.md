@@ -2,10 +2,12 @@
 
 ### Requirement: Moldura única do painel autenticado
 
-Toda tela do painel SHALL ser exibida dentro de uma moldura comum, composta por navegação lateral, barra
-superior e área de conteúdo com rolagem própria. A moldura MUST ser definida uma única vez, no layout do
-grupo de rotas privadas, e MUST NOT redeclarar o documento HTML, a fonte, a folha de estilos global ou os
-provedores de cliente já declarados pelo layout raiz.
+Toda tela do painel SHALL ser exibida dentro de uma moldura comum, composta por barra superior, navegação
+lateral e área de conteúdo com rolagem própria. A barra superior SHALL atravessar toda a largura da tela,
+com a navegação lateral começando abaixo dela — de modo que a identidade do produto e o bloco de usuário
+ocupem uma faixa única, e não se dividam entre duas colunas. A moldura MUST ser definida uma única vez, no
+layout do grupo de rotas privadas, e MUST NOT redeclarar o documento HTML, a fonte, a folha de estilos
+global ou os provedores de cliente já declarados pelo layout raiz.
 
 #### Scenario: Documento único
 
@@ -23,6 +25,12 @@ provedores de cliente já declarados pelo layout raiz.
 
 - **WHEN** uma tela do painel é aberta
 - **THEN** o título da aba combina o nome da área com o nome do produto, seguindo o template do layout raiz
+
+#### Scenario: A marca não é o título da página
+
+- **WHEN** uma tela do painel é renderizada
+- **THEN** a marca do produto na barra superior não concorre com o cabeçalho principal da tela
+- **AND** o cabeçalho de nível mais alto do documento pertence ao conteúdo da rota
 
 ### Requirement: Navegação entre as áreas do painel
 
@@ -68,14 +76,17 @@ registrada, a navegação MUST ser exibida expandida.
 #### Scenario: Rótulos no modo recolhido
 
 - **WHEN** a navegação está recolhida à faixa de ícones
-- **THEN** cada item revela seu rótulo ao receber o ponteiro ou o foco
+- **THEN** cada item revela seu rótulo ao receber o ponteiro ou o foco, sem espera perceptível — nesse modo
+  o rótulo revelado é a única identificação do item
 - **AND** o controle de recolher anuncia a ação que executa, e não o estado atual
 
 ### Requirement: Navegação adaptada a telas estreitas
 
 Em viewports estreitas a navegação lateral SHALL ser apresentada como painel sobreposto, acionado sob
 demanda, em vez de ocupar largura permanente. O modo de faixa de ícones MUST NOT ser aplicado nessas
-viewports, onde o espaço horizontal não é o recurso escasso.
+viewports, onde o espaço horizontal não é o recurso escasso. Sempre que a navegação estiver oculta por
+largura de tela, a barra superior MUST oferecer um controle visível para abri-la — uma navegação que só
+responde a atalho de teclado é inalcançável no toque.
 
 #### Scenario: Celular
 
@@ -83,7 +94,14 @@ viewports, onde o espaço horizontal não é o recurso escasso.
 - **THEN** a navegação fica oculta até ser acionada
 - **AND** ao ser acionada aparece sobreposta ao conteúdo, com os rótulos das áreas visíveis
 
-#### Scenario: Marca visível no mobile
+#### Scenario: Gatilho de abertura no mobile
 
 - **WHEN** o painel é exibido em viewport menor que 768px, com a navegação oculta
-- **THEN** a marca do produto permanece visível na barra superior
+- **THEN** a barra superior exibe um controle de abertura da navegação, com rótulo acessível próprio
+- **AND** o controle desaparece nas viewports em que a navegação já ocupa largura permanente
+
+#### Scenario: Marca sempre visível
+
+- **WHEN** o painel é exibido em qualquer largura de tela, inclusive com a navegação recolhida à faixa de
+  ícones
+- **THEN** a marca do produto permanece visível na barra superior, com o nome do produto legível

@@ -66,12 +66,14 @@
 
 ## 3. Painel — moldura e navegação
 
-- [x] Shell do painel em `(private)/layout.tsx`: sidebar + barra superior + área de conteúdo com rolagem própria
+- [x] Shell do painel em `(private)/layout.tsx`, em "T": barra superior atravessando o topo, sidebar e área
+      de conteúdo com rolagem própria abaixo dela
+- [x] Marca do produto na barra superior, visível também com a sidebar recolhida à faixa de ícones
 - [x] Sidebar colapsável para faixa de ícones, nas cores da marca (tokens `--sidebar-*` reescritos)
 - [x] Navegação em duas seções — Operação e Administração — declarada como dado (`NAV_SECTIONS`)
 - [x] Item ativo por `usePathname`, casando rotas de detalhe, com `aria-current="page"`
 - [x] Recolhimento preservado entre recargas: cookie `sidebar_state` lido no servidor como `defaultOpen`
-- [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px
+- [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px, aberta pelo gatilho da barra superior
 - [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
 - [ ] Bloco de usuário da barra superior com dados da sessão (hoje nome e avatar fixos, via `github.com`)
 - [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado)

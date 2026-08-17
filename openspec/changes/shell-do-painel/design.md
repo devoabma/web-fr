@@ -48,6 +48,29 @@ e saltaria para recolhida depois da hidratação.
 O custo é a rota virar dinâmica (`ƒ`). Aceitável: o painel exige sessão e nunca poderia ser estático de
 qualquer forma.
 
+### Barra superior atravessa o topo; a sidebar começa abaixo dela
+
+O arranjo padrão do shadcn é sidebar à esquerda em altura total, com a barra superior dentro do
+`SidebarInset` — ou seja, começando só depois da sidebar. Isso partia a identidade do produto em duas
+colunas: marca no topo da sidebar, bloco de usuário no topo do conteúdo, cada um com sua altura para
+alinhar à mão. O painel passou ao arranjo em "T": **a barra superior atravessa a largura inteira e a
+navegação lateral começa abaixo dela**.
+
+Duas consequências mecânicas:
+
+- O wrapper do `SidebarProvider` vira coluna (`h-svh flex-col overflow-hidden`) — header em cima, a linha
+  sidebar + conteúdo embaixo. O header precisa morar **dentro** do provider porque o gatilho mobile depende
+  do contexto da sidebar.
+- O container da sidebar é `fixed`, então ele ignora o fluxo e passaria por baixo do header. Daí a variável
+  `--sidebar-offset`: a primitiva a declara com `0rem` (arranjo padrão preservado para qualquer outro uso) e
+  o layout do painel a sobrescreve com a altura do header. A sidebar então começa em
+  `top-(--sidebar-offset)` e mede `calc(100svh - var(--sidebar-offset))`.
+
+A marca sai do `SidebarHeader` e vai para a barra superior, onde fica visível **em toda largura de tela** —
+inclusive com a sidebar recolhida à faixa de ícones, situação em que antes o nome do produto sumia. Com a
+marca fora da sidebar, o brilho radial do topo perdeu a função (não havia mais o que destacar naquele canto)
+e foi removido.
+
 ### Sidebar como superfície de marca
 
 Os tokens `--sidebar-*` que o shadcn instala são derivados do cinza neutro. Foram reescritos para o azul
@@ -55,9 +78,16 @@ profundo do produto (`oklch(0.254 0.057 266.709)` no claro, um tom mais escuro n
 `--sidebar-accent` em branco translúcido (`oklch(1 0 0 / 12%)`) em vez de um cinza sólido — assim o realce
 do item ativo funciona sobre o azul sem precisar de um segundo tom calibrado à mão.
 
-A profundidade vem de dois elementos decorativos com `aria-hidden`: um brilho radial no topo e o
-`BrandMark` como marca d'água no rodapé, em `text-white/4`. A marca d'água some no modo ícone — numa faixa
-de 3rem ela vira ruído em vez de textura.
+A barra superior usa `bg-sidebar`/`text-sidebar-foreground`, e não os tokens de fundo do documento: no
+arranjo em "T" ela e a sidebar formam uma superfície contínua de marca em volta do conteúdo.
+
+Realces sobre essa superfície usam **branco translúcido**, nunca `bg-primary`. No tema claro `--primary` e
+`--sidebar` são literalmente o mesmo azul, então uma pílula `bg-primary` desaparece dentro do header; no
+tema escuro ela apareceria. O branco translúcido é a mesma regra já aplicada em `--sidebar-accent` e se
+comporta igual nos dois temas.
+
+A profundidade vem do `BrandMark` como marca d'água no rodapé da sidebar, com `aria-hidden`, em
+`text-white/4`. A marca d'água some no modo ícone — numa faixa de 3rem ela vira ruído em vez de textura.
 
 ### Navegação declarada como dado, não como marcação
 
@@ -77,6 +107,30 @@ puxar o resto do rodapé para o cliente.
 O componente declara `'use client'` por conta própria, embora hoje só seja importado por um componente que
 já é cliente. A diretiva é o que garante que ele continue correto se um Server Component vier a importá-lo.
 
+### Gatilho de abertura no mobile, e não só o atalho de teclado
+
+Abaixo de 768px a sidebar vira `Sheet` e só abre por comando explícito. Enquanto a barra superior não tinha
+gatilho, o único caminho era `Ctrl/Cmd+B` — inexistente no toque, que é justamente o contexto dessas
+larguras: **a navegação do painel era inalcançável no celular**. O `SidebarTrigger` na barra superior fecha
+isso, com `md:hidden` porque no desktop a sidebar já ocupa largura permanente e tem o rail e o botão do
+rodapé.
+
+O gatilho carrega `aria-label` próprio ("Abrir menu de navegação"), que vence o rótulo genérico da
+primitiva.
+
+### A marca da barra superior não é o `h1` da página
+
+A marca estava marcada como `<h1>` desde a versão na sidebar. Como ela é parte da moldura, isso daria a
+**toda** tela do painel um cabeçalho de nível 1 dizendo "Sala Livre" antes do cabeçalho real da rota — dois
+`h1` por documento, e o primeiro sem relação com o conteúdo. Na barra superior a marca é identidade do
+produto, não título; virou `<span>`. O `h1` pertence a cada `page.tsx`.
+
+### `TooltipProvider` no topo do `SidebarProvider`
+
+Sem provider, cada `Tooltip` do base-ui usa o atraso padrão de 600ms. No modo de faixa de ícones o tooltip é
+o **único** rótulo do item: 600ms de espera transformam a navegação recolhida em adivinhação. O provider
+entra na própria primitiva da sidebar, com `delay={0}`, para valer em qualquer consumidor dela.
+
 ### Barra superior com bloco de usuário provisório
 
 O bloco com foto, nome e status é literal — nome fixo e avatar vindo de `github.com`, o que obrigou a
@@ -89,7 +143,7 @@ A criação de funcionário é `POST /employees/create-account`, ação restrita
 painel. Não existe auto-cadastro no produto. A rota placeholder herdada sugeria um fluxo que nunca vai
 existir, e apareceria em qualquer varredura de rotas como trabalho pendente.
 
-### A marca da sidebar aponta para `/panel`, não para `/`
+### A marca da barra superior aponta para `/panel`, não para `/`
 
 Dentro de um painel a marca é o atalho para a tela inicial **do painel**. Apontar para `/` era o reflexo da
 landing e tirava o usuário da área autenticada por um clique em algo que parece um "início" — e a landing
@@ -124,6 +178,13 @@ rota nova ("/impressoes" ou "/printers"?), e renomear depois custa redirecioname
   produto depende do logout, que ainda não existe.
 - **Tokens `--sidebar-*` divergiram do padrão shadcn.** Um `shadcn add` futuro que reinstale os tokens
   desfaz a identidade; a alteração vive em `globals.css` e precisa ser reconferida em atualizações.
+- **`src/components/ui/sidebar.tsx` foi editada, não só consumida.** O `--sidebar-offset`, o
+  `TooltipProvider` e o posicionamento `top/bottom` do container são alterações na primitiva. Um
+  `shadcn add sidebar` sobrescreve as três e o header volta a cobrir a sidebar. A escolha foi deliberada:
+  o alternativo — reposicionar a sidebar por fora, com CSS de escape sobre `[data-slot=sidebar-container]` —
+  seria mais frágil e menos legível que uma variável com padrão neutro.
+- **A altura do header vive em dois lugares.** `h-12` no `PanelHeader` e a constante `HEADER_HEIGHT` no
+  layout, que alimenta `--sidebar-offset`. Mudar um sem o outro descola a sidebar do header.
 
 ## Migration Plan
 

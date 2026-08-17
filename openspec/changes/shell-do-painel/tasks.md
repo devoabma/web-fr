@@ -7,7 +7,8 @@
 - [x] 1.3 Trocar o template de `metadata` herdado por um título de área (`Painel`), deixando o template no
       layout raiz
 - [x] 1.4 Montar o shell com `SidebarProvider` + `PanelSidebar` + `SidebarInset`
-- [x] 1.5 Barra superior de 48px com marca visível só no mobile e bloco de usuário provisório
+- [x] 1.5 ~~Barra superior de 48px com marca visível só no mobile~~ e bloco de usuário provisório —
+      substituída pela seção 8 (barra superior atravessando o topo, marca sempre visível)
 - [x] 1.6 Área de conteúdo com rolagem própria (`flex-1 overflow-auto p-6`)
 
 ## 2. Persistência do recolhimento (concluída)
@@ -21,11 +22,14 @@
 
 - [x] 3.1 Instalar as primitivas `sidebar`, `sheet`, `tooltip` e `skeleton` e o hook `use-mobile`
 - [x] 3.2 Criar `_components/shared/panel-sidebar/index.tsx` com `collapsible="icon"`
-- [x] 3.3 Cabeçalho da sidebar alinhado à altura da barra superior (48px), com `BrandMark` e nome do produto
+- [x] 3.3 ~~Cabeçalho da sidebar com `BrandMark` e nome do produto~~ — a marca migrou para a barra superior
+      (10.2); o `SidebarHeader` foi removido
 - [x] 3.3.1 Apontar a marca para `/panel` — dentro do painel ela é o atalho para a tela inicial do painel,
       não para a landing
-- [x] 3.4 Esconder o texto da marca no modo ícone (`group-data-[collapsible=icon]:hidden`)
-- [x] 3.5 Brilho radial no topo como elemento decorativo com `aria-hidden`
+- [x] 3.4 ~~Esconder o texto da marca no modo ícone~~ — sem efeito depois de 3.3; a marca agora vive fora
+      da sidebar e permanece visível em qualquer estado
+- [x] 3.5 ~~Brilho radial no topo como elemento decorativo com `aria-hidden`~~ — removido: sem a marca
+      naquele canto, o brilho não destacava mais nada
 - [x] 3.6 Marca d'água com o `BrandMark` no rodapé, suprimida no modo ícone
 - [x] 3.7 `SidebarRail` para recolher arrastando a borda
 
@@ -59,21 +63,46 @@
 - [x] 7.2 Liberar `github.com` em `images.remotePatterns` para o avatar provisório
 - [x] 7.3 Criar `/panel` como placeholder, destino do item ativo da sidebar
 
-## 8. Verificação
+## 8. Barra superior atravessando o topo (concluída)
 
-- [x] 8.1 `pnpm exec tsc --noEmit` sem erros
-- [x] 8.2 `pnpm biome check --write` sem issues
-- [x] 8.3 `pnpm build` concluído, com `/panel` como `ƒ` e as demais rotas estáticas
-- [ ] 8.4 Conferir o recolhimento, a recarga com a sidebar recolhida e o atalho `Ctrl/Cmd+B`
-- [ ] 8.5 Conferir a sidebar como `Sheet` abaixo de 768px
-- [ ] 8.6 Conferir contraste dos itens ativo e inativo sobre o azul, nos temas claro e escuro
+- [x] 8.1 Extrair a barra superior para `_components/shared/panel-header/index.tsx`
+- [x] 8.2 Mover a marca do `SidebarHeader` para a barra superior, visível em toda largura de tela
+- [x] 8.3 Wrapper do `SidebarProvider` em coluna (`h-svh flex-col overflow-hidden`): header em cima,
+      sidebar + conteúdo na linha de baixo
+- [x] 8.4 Declarar `--sidebar-offset` na primitiva com padrão `0rem` e posicionar o container em
+      `top-(--sidebar-offset)` com `h-[calc(100svh-var(--sidebar-offset))]`
+- [x] 8.5 Sobrescrever `--sidebar-offset` no layout privado com a altura do header (`HEADER_HEIGHT`)
+- [x] 8.6 Manter o `PanelHeader` dentro do `SidebarProvider` — o gatilho mobile depende do contexto
+- [x] 8.7 `SidebarTrigger` com `md:hidden` e `aria-label` próprio: sem ele a navegação era inalcançável
+      no toque, já que só o atalho `Ctrl/Cmd+B` abria o `Sheet`
+- [x] 8.8 `TooltipProvider` com `delay={0}` no `SidebarProvider` — o padrão de 600ms do base-ui tornava
+      inútil o rótulo do modo ícone
+- [x] 8.9 Realce da barra superior em branco translúcido: no tema claro `--primary` é o mesmo azul de
+      `--sidebar`, e a pílula `bg-primary` sumia dentro do header
+- [x] 8.10 Marca da barra superior como `<span>`, não `<h1>` — o `h1` pertence ao conteúdo de cada rota,
+      que já declara o seu
+- [x] 8.11 Trocar o separador do template de título do layout raiz (`|` → `•`)
 
-## 9. Próximos passos (fora desta change)
+## 9. Verificação
 
-- [ ] 9.1 Guarda de sessão no grupo `(private)` e redirecionamento de não autenticados
-- [ ] 9.2 Substituir o bloco de usuário provisório por dados da sessão, retirando `github.com` do
+- [x] 9.1 `pnpm exec tsc --noEmit` sem erros
+- [x] 9.2 `pnpm biome check --write` sem issues
+- [x] 9.3 `pnpm build` concluído, com `/panel` como `ƒ` e as demais rotas estáticas
+- [ ] 9.4 Conferir o recolhimento, a recarga com a sidebar recolhida e o atalho `Ctrl/Cmd+B`
+- [ ] 9.5 Conferir a sidebar como `Sheet` abaixo de 768px, aberta pelo gatilho da barra superior
+- [ ] 9.6 Conferir contraste dos itens ativo e inativo sobre o azul, nos temas claro e escuro
+- [ ] 9.7 Conferir que a sidebar começa exatamente abaixo do header nas duas larguras de coluna
+      (expandida e faixa de ícones) e que não há rolagem horizontal
+
+## 10. Próximos passos (fora desta change)
+
+- [ ] 10.1 Guarda de sessão no grupo `(private)` e redirecionamento de não autenticados
+- [ ] 10.2 Substituir o bloco de usuário provisório por dados da sessão, retirando `github.com` do
       `next.config.ts`
-- [ ] 9.3 **Esconder** a seção "Administração" de `MEMBER` — filtro sobre `NAV_SECTIONS`, não item desabilitado
-- [ ] 9.4 Criar as cinco rotas que a sidebar já referencia e hoje caem na 404
-- [ ] 9.5 Levar o hero da landing e o login para `/panel` depois da autenticação
-- [ ] 9.6 `loading.tsx` por área do painel, com o `skeleton` já instalado
+- [ ] 10.3 **Esconder** a seção "Administração" de `MEMBER` — filtro sobre `NAV_SECTIONS`, não item
+      desabilitado
+- [ ] 10.4 Criar as cinco rotas que a sidebar já referencia e hoje caem na 404
+- [ ] 10.5 Levar o hero da landing e o login para `/panel` depois da autenticação
+- [ ] 10.6 `loading.tsx` por área do painel, com o `skeleton` já instalado
+- [ ] 10.7 Reconferir `src/components/ui/sidebar.tsx` depois de qualquer `shadcn add` — a primitiva carrega
+      três alterações locais que o comando sobrescreve

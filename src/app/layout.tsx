@@ -8,7 +8,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-sans'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Sala Livre',
+    template: '%s • Sala Livre',
     default: 'Sala Livre',
   },
   description: 'Uma plataforma de gestão inteligente das salas da advocacia.',
