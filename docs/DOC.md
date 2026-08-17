@@ -28,7 +28,8 @@ A documentação de domínio (regras de negócio, fluxos, banco) é mantida na A
 - **shadcn** no estilo `base-nova`, sobre **`@base-ui/react`**
 - **lucide-react** (ícones) · **sonner** (notificações)
 - **React Hook Form + Zod** (`@hookform/resolvers`) — formulários e validação
-- **axios** — cliente HTTP da `api-fr` (adicionado; ainda sem uso)
+- **axios** — cliente HTTP da `api-fr` (`src/lib/axios.ts`)
+- **TanStack React Query 5** — camada de dados do cliente
 - **Biome 2.4** (lint + format) · **pnpm**
 
 ```bash
@@ -54,6 +55,8 @@ pnpm build
 
 ```
 src/
+├── proxy.ts                       # guarda de navegação (middleware do Next 16)
+├── env.ts                         # variáveis públicas validadas por Zod
 ├── app/
 │   ├── layout.tsx                 # ÚNICO documento HTML: fonte, globals.css, metadata, providers
 │   ├── page.tsx                   # composição da landing
@@ -66,18 +69,25 @@ src/
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — placeholder
 │       └── _components/shared/
-│           ├── client-providers.tsx
-│           ├── panel-header/      # barra superior: marca, gatilho mobile e bloco de usuário
+│           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
+│   │   └── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
 │   └── ui/                        # primitivas shadcn/base-ui
+├── constants/query-keys.ts        # chaves do React Query, centralizadas
+├── server/employees/              # funções de acesso à api-fr, uma por endpoint
 ├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── masks/                     # máscaras de entrada (CPF)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
-└── lib/utils.ts                   # cn() — clsx + tailwind-merge
+└── lib/
+    ├── utils.ts                   # cn() — clsx + tailwind-merge
+    ├── axios.ts                   # instância única, baseURL por env, withCredentials
+    ├── react-query.ts             # getQueryClient() — por requisição no servidor
+    ├── auth/{routes,session}.ts   # política de rotas e leitura do JWT
+    └── http/api-error.ts          # leitura defensiva de message / 429
 ```
 
 **Convenções:**
@@ -111,11 +121,47 @@ sempre rodar `pnpm biome check --write` depois de editar JSX.
 ### Autenticação
 
 `POST /employees/session/auth` com `{ cpf, password }` responde `200 { token }` **e** define um cookie
-`httpOnly` (`TOKEN_COOKIE_NAME`, padrão `@my-token`), válido por 1 dia. O JWT carrega `{ sub, role }`.
+`httpOnly` (`TOKEN_COOKIE_NAME`, `@fr-auth-token` nos ambientes atuais), válido por 1 dia. O JWT carrega
+`{ sub, role, exp }`.
 
-> ⚠️ **A API está com `CORS origin: '*'`.** Com origem curinga o navegador não envia cookie credenciado,
-> então enquanto isso não for restringido ao `WEB_URL` este front precisa enviar
-> `Authorization: Bearer <token>` explicitamente.
+**Este painel usa o cookie, e descarta o `{ token }` do corpo.** O cookie é `httpOnly` justamente para que
+uma falha de XSS não valha sessão roubada; copiá-lo para `localStorage` anularia a proteção. O `axios` de
+`src/lib/axios.ts` vai com `withCredentials: true`, e o navegador anexa o cookie sozinho.
+
+> ✅ O CORS da API já está restrito ao `WEB_URL` com `credentials: true` — a ressalva anterior sobre
+> `origin: '*'` exigir `Authorization: Bearer` **está vencida**. Se o CORS voltar a ser curinga, o login
+> quebra inteiro: o navegador recusa cookie credenciado com origem coringa.
+
+> ⚠️ **Cookie e domínio.** A API grava o cookie em `DOMAIN_URL` (`localhost` em desenvolvimento — cookies
+> ignoram a porta, então `:25600` e `:3000` compartilham). Em produção, painel e API só compartilham sessão
+> se o `Domain` cobrir os dois subdomínios, com `SameSite=None; Secure`. O `NEXT_PUBLIC_DOMAIN` deste
+> repositório precisa espelhar esse valor: é com ele que o `proxy.ts` **apaga** o cookie inservível, e um
+> `delete` host-only não remove cookie gravado com `Domain=`.
+
+**Não há rota de logout.** A sessão termina por expiração (1 dia) ou quando o `proxy.ts` descarta um cookie
+inservível.
+
+### Sessão e guarda de rotas
+
+`src/proxy.ts` (o middleware do Next 16) decide para onde mandar cada visitante, **antes** da renderização:
+
+| Situação | Destino |
+| --- | --- |
+| Rota pública (`PUBLIC_ROUTES`) | segue, com ou sem sessão |
+| Rota de autenticação com sessão válida | `/panel` |
+| Qualquer outra rota sem sessão | `/auth/sign-in?redirect=<origem>` |
+| `/admin/*` com papel `MEMBER` | `/panel` |
+
+> ⚠️ **A guarda é otimista — não é autorização.** Ela decodifica o payload do JWT e confere formato, papel e
+> `exp`, mas **não verifica a assinatura**: fazer isso exigiria o segredo do JWT dentro do front. Um cookie
+> forjado atravessa o `proxy.ts` sem esforço. Quem protege dado é a `api-fr`, que valida o token a cada
+> requisição. O papel do proxy é evitar que o usuário veja telas vazias.
+
+A regra é **negar por padrão**: só é público o que estiver em `PUBLIC_ROUTES`. Rota nova do painel nasce
+protegida sem ninguém precisar lembrar de registrá-la — e rota pública nova **precisa** ser registrada, ou
+cai no login. O casamento é por segmento, para `/administrativo` não casar com `/admin`.
+
+Token sem `exp` é tratado como **expirado**, não como eterno.
 
 ### Papéis
 
@@ -155,8 +201,17 @@ Tetos de rate limit relevantes ao painel:
 > erra a senha algumas vezes bate o teto — a UI precisa dizer quanto falta esperar, não apenas "erro".
 
 Por isso a tela de login valida **CPF (com dígitos verificadores) e tamanho de senha no cliente**: dado
-malformado não pode consumir uma das cinco tentativas. O bloco `errors.root` do formulário é o lugar
-reservado para as mensagens de `400` e `429` quando a integração existir.
+malformado não pode consumir uma das cinco tentativas. O bloco `errors.root` do formulário é onde aparecem
+as mensagens de `400` e `429` — no `429`, já traduzidas para tempo de espera ("2 minutos", "1 minuto e 30
+segundos") por `formatWaitTime`.
+
+**Ler o erro é defensivo, sempre.** Nem tudo que chega ao `catch` veio da API: queda de rede não traz
+`response`, e um 502 de gateway responde HTML. `err.response.data.message` direto quebra o próprio
+tratamento de erro nesses casos. Use `src/lib/http/api-error.ts` — `getApiErrorMessage(err, fallback)`,
+`getApiErrorStatus(err)` e `getRetryAfterInSeconds(err)`.
+
+O `QueryClient` **não retenta `4xx`**: são decisões da API, não falhas de transporte, e repetir devolve o
+mesmo status. No `429` retentar é ativamente prejudicial — cada tentativa consome o teto.
 
 ---
 
@@ -180,19 +235,24 @@ Confirmar antes de planejar as telas correspondentes.
 | Rota | Grupo | Estado |
 | --- | --- | --- |
 | `/` | — | landing pública, pronta |
-| `/auth/sign-in` | `(public)` | UI pronta; **não autentica** — `handleSignIn` só faz `console.log` |
-| `/panel` | `(private)` | shell pronto, conteúdo placeholder; **sem guarda de sessão** |
+| `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
+| `/panel` | `(private)` | shell pronto, conteúdo placeholder; **protegida pelo `proxy.ts`** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
-| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem** |
-| `/privacidade`, `/suporte`, `/status` | — | **linkadas pelo rodapé, não existem** |
+| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
+| `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
 > Não existe `/auth/sign-up`: cadastro de funcionário é `POST /employees/create-account`, ação restrita a
 > `ADMIN` dentro do painel. Não há auto-cadastro no produto.
 
-> **Nada aponta para `/panel` ainda** — o hero da landing e a 404 levam a `/auth/sign-in`. O painel só é
-> alcançável digitando o endereço, e responde a qualquer visitante.
+> ⚠️ **Rota nova é protegida até prova em contrário.** Ao criar uma tela pública, registre-a em
+> `PUBLIC_ROUTES` (`src/lib/auth/routes.ts`) — senão o `proxy.ts` a redireciona para o login e nem a 404
+> aparece. Foi o que aconteceu com o rodapé, que apontava para `/privacidade` e `/suporte` enquanto a lista
+> declarava `/privacy` e `/support`; os `href` foram alinhados à convenção de URLs em inglês.
+
+> **O hero da landing continua apontando para `/auth/sign-in`**, e não para `/panel` — correto para quem
+> não tem sessão, e quem tem é devolvido ao painel pelo próprio proxy.
 
 ### Shell do painel
 
@@ -226,6 +286,18 @@ essa leitura a persistência seria só escrita e a sidebar voltaria aberta a cad
 O `SidebarTrigger` da barra superior existe só abaixo de 768px (`md:hidden`), onde a sidebar vira `Sheet`.
 Sem ele a navegação só abria por `Ctrl/Cmd+B` — atalho que não existe no toque, justamente o contexto dessas
 larguras.
+
+> ⚠️ **O `PanelHeader` é Server Component e precisa continuar sendo.** Quem consulta o perfil é
+> `panel-header/panel-user.tsx`, uma ilha cliente. Subir o `useQuery` para o header — e com ele um
+> `if (!profile) return null` — apaga a barra inteira enquanto o perfil não chega, **inclusive o
+> `SidebarTrigger`**: abaixo de 768px o usuário fica sem nenhum caminho para abrir a navegação, e o
+> conteúdo salta quando a barra reaparece. O estado de carregamento pertence ao bloco de usuário, com
+> `skeleton` do tamanho final.
+
+`GET /employees/profile` declara **`imageUrl` anulável** — funcionário sem foto cadastrada. Entregar `null`
+ao `src` do `next/image` estoura em tempo de execução; o fallback são as iniciais do nome sobre a mesma
+moldura. O perfil é consultado com `staleTime` infinito e descartado por `queryClient.clear()` no login,
+para não atravessar de um funcionário para outro na mesma aba.
 
 Realces sobre a barra superior e a sidebar usam **branco translúcido**, nunca `bg-primary`: no tema claro
 `--primary` e `--sidebar` são o mesmo azul, e um elemento `bg-primary` desapareceria dentro da superfície

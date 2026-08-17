@@ -13,16 +13,18 @@
 - [x] shadcn no estilo `base-nova` sobre `@base-ui/react` (`components.json`)
 - [x] Helper `cn()` (clsx + tailwind-merge) em `src/lib/utils.ts`
 - [x] Convenções de lint/format no `biome.json` (largura 130, sem ponto e vírgula, `useSortedClasses` como erro)
-- [x] Layout raiz: fonte Space Grotesk, metadata do produto, favicon, `ClientProviders` com o `Toaster`
+- [x] Layout raiz: fonte Space Grotesk, metadata do produto, favicon, `ClientProviders` com o `Toaster` e o
+      `QueryClientProvider` (o arquivo mora em `src/components/app/`, não no grupo `(private)`)
 - [x] OpenSpec inicializado (`openspec/`, comandos `/opsx:*`)
 - [x] Documentação do repositório (`docs/DOC.md`, `docs/ROADMAP.md`)
 - [x] Grupos de rota `(public)` e `(private)` separando o que exige sessão
 - [x] Layout privado deixou de duplicar o documento HTML do layout raiz (fonte, `globals.css` e `Toaster`
       agora só na raiz)
 - [x] Validação e máscara de CPF reutilizáveis (`src/utils/schemas/`, `src/utils/masks/`)
-- [ ] Cliente HTTP da `api-fr` (base URL por env, injeção do token, tratamento de `400`/`401`/`429`)
-- [ ] Variáveis de ambiente validadas (`.env.example` + schema)
-- [ ] Camada de dados (React Query ou Server Actions — decisão pendente)
+- [x] Cliente HTTP da `api-fr` (`src/lib/axios.ts`, base URL por env e `withCredentials`) com leitura
+      defensiva de `400`/`429` em `src/lib/http/api-error.ts`
+- [~] Variáveis de ambiente validadas — schema Zod em `src/env.ts`; falta o `.env.example`
+- [x] Camada de dados: **React Query**, com `QueryClient` por requisição no servidor e sem retentativa em `4xx`
 - [~] Tratamento global de erro e estados de carregamento — `not-found.tsx` pronto; falta `error.tsx` e `loading.tsx`
 - [ ] Deploy
 
@@ -46,21 +48,26 @@
 
 ## 2. Autenticação
 
-- [~] Tela de login `/auth/sign-in` — UI, validação e estados prontos; `handleSignIn` ainda não chama
-      `POST /employees/session/auth`
+- [x] Tela de login `/auth/sign-in` — UI, validação, estados e integração com a API
 - [x] Validação local do CPF (dígitos verificadores) e máscara progressiva
 - [x] Layout split com painel de marca, responsivo (formulário primeiro no mobile)
 - [x] Estados de envio, erro por campo e slot de erro geral (`errors.root`)
-- [ ] Integrar `POST /employees/session/auth`
-- [ ] Persistência da sessão e injeção do token nas requisições
-- [ ] Proteção de rotas do painel e redirecionamento de não autenticados
-- [ ] Leitura do `role` para exibição condicional de ações (ADMIN vs MEMBER)
-- [ ] Tratamento do `429` no login, exibindo o tempo de espera (`retryAfterInSeconds`)
+- [x] Integrar `POST /employees/session/auth`
+- [x] Persistência da sessão pelo cookie `httpOnly` da API — o `{ token }` do corpo é descartado, nada vai
+      para `localStorage`
+- [x] Proteção de rotas do painel e redirecionamento de não autenticados (`src/proxy.ts`, negar por padrão)
+- [x] Retorno ao destino pretendido depois do login (`?redirect=`, restrito a caminho interno)
+- [x] Leitura do `role` para corte de acesso a `/admin/*` (ADMIN vs MEMBER)
+- [x] Tratamento do `429` no login, exibindo o tempo de espera (`retryAfterInSeconds`)
 - [ ] Esqueci minha senha (`POST /employees/password-recovery`) — rota `/auth/forgot-password` já linkada
       pela tela de login, mas inexistente
 - [ ] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`)
 - [ ] Trocar senha do usuário logado (`PATCH /employees/change-password`)
-- [ ] Logout
+- [ ] Logout — **a `api-fr` não expõe rota**; hoje a sessão só termina por expiração (1 dia) ou por descarte
+      do cookie inservível pelo proxy
+- [ ] "Manter-me conectado" é decorativo: a API aceita só `{ cpf, password }` e fixa o cookie em 1 dia.
+      Decidir entre remover o campo ou pedir suporte na `api-fr`
+- [ ] Revisar `Domain`/`SameSite` do cookie quando painel e API forem para domínios distintos em produção
 
 ---
 
@@ -75,12 +82,16 @@
 - [x] Recolhimento preservado entre recargas: cookie `sidebar_state` lido no servidor como `defaultOpen`
 - [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px, aberta pelo gatilho da barra superior
 - [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
-- [ ] Bloco de usuário da barra superior com dados da sessão (hoje nome e avatar fixos, via `github.com`)
-- [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado)
+- [x] Bloco de usuário da barra superior com dados da sessão (`GET /employees/profile`), com `skeleton`
+      durante o carregamento e iniciais do nome quando não há foto
+- [ ] Status real do sistema no lugar do badge fixo "All OK" (nada consulta o `/health` da API ainda)
+- [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado) —
+      o `proxy.ts` já barra o acesso, falta esconder o item
 - [ ] Criar as cinco áreas que a sidebar já referencia — hoje `/printers`, `/releases`, `/admin/rooms`,
       `/admin/computers` e `/admin/employees` caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
-- [ ] Levar o hero da landing e o login para `/panel` (o hero ainda aponta para `/auth/sign-in`)
+- [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
+      `/auth/sign-in` (correto para quem não tem sessão, mas o proxy já devolveria ao painel quem tem)
 - [ ] Conferir contraste dos itens ativo/inativo sobre o azul, nos temas claro e escuro
 
 ---
