@@ -82,6 +82,8 @@
 - [x] 8.10 Marca da barra superior como `<span>`, não `<h1>` — o `h1` pertence ao conteúdo de cada rota,
       que já declara o seu
 - [x] 8.11 Trocar o separador do template de título do layout raiz (`|` → `•`)
+- [x] 8.12 Brilho radial no canto da marca, agora na barra superior — o mesmo recurso que 3.5 tirou da
+      sidebar, reaplicado onde a marca de fato vive, como `div` decorativa `aria-hidden pointer-events-none`
 
 ## 9. Verificação
 

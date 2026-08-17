@@ -229,7 +229,9 @@ larguras.
 
 Realces sobre a barra superior e a sidebar usam **branco translúcido**, nunca `bg-primary`: no tema claro
 `--primary` e `--sidebar` são o mesmo azul, e um elemento `bg-primary` desapareceria dentro da superfície
-de marca. É a mesma regra já aplicada em `--sidebar-accent`.
+de marca. É a mesma regra já aplicada em `--sidebar-accent`. Pela mesma lógica, o brilho radial que abre a
+barra superior no canto da marca é branco translúcido em gradiente — uma `div` puramente decorativa, e por
+isso `aria-hidden` e `pointer-events-none`, para não entrar na árvore de acessibilidade nem roubar cliques.
 
 A marca da barra superior é `<span>`, não `<h1>`. Como ela é parte da moldura, um `h1` ali daria a toda tela
 do painel um cabeçalho de nível 1 sem relação com o conteúdo — o `h1` pertence a cada `page.tsx`.
