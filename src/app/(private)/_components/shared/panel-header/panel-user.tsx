@@ -1,38 +1,62 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
-import Image from 'next/image'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { LoaderCircleIcon, LogOutIcon, SettingsIcon } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys } from '@/constants/query-keys'
+import { SIGN_IN_ROUTE } from '@/lib/auth/routes'
+import type { Role } from '@/lib/auth/session'
+import { getApiErrorMessage } from '@/lib/http/api-error'
 import { getProfile } from '@/server/employees/get-profile'
+import { logout } from '@/server/employees/logout'
+import { getInitials } from '@/utils'
 
-/** "Hilquias Ferreira Melo" → "HM". Avatar de quem nunca subiu foto — a API devolve `imageUrl` nula. */
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-
-  if (parts.length === 0) return '?'
-
-  const first = parts[0]?.charAt(0) ?? ''
-  const last = parts.length > 1 ? (parts.at(-1)?.charAt(0) ?? '') : ''
-
-  return `${first}${last}`.toUpperCase()
+/** A api-fr devolve o papel como enum; o painel mostra o rótulo em português. */
+const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: 'Administrador',
+  MEMBER: 'Membro',
 }
 
-/**
- * Ilha cliente da barra superior. O perfil só existe depois da requisição, e é por isso que o bloco do
- * usuário — e não o header inteiro — é que assume o estado de carregamento: o `SidebarTrigger` é o único
- * caminho para abrir a navegação no mobile, então ele não pode desaparecer enquanto o perfil não chega.
- */
 export function PanelUser() {
-  const { data, isPending } = useQuery({
+  const router = useRouter()
+  const queryClient = useQueryClient()
+
+  const { data, isPending: isLoadingProfile } = useQuery({
     queryKey: queryKeys.getProfile(),
     queryFn: getProfile,
-    // O perfil não muda durante a sessão; quem o invalida são as ações que o alteram (troca de foto, por
-    // exemplo). O `queryClient.clear()` do login garante que ele não atravesse de um usuário para outro.
-    staleTime: Number.POSITIVE_INFINITY,
+    staleTime: Number.POSITIVE_INFINITY, // O perfil do usuário não muda durante a sessão, então não há necessidade de refetch automático
   })
 
-  if (isPending) {
+  const { mutateAsync: logoutMutate, isPending: isLoggingOut } = useMutation({
+    mutationFn: logout,
+  })
+
+  async function handleLogout() {
+    try {
+      await logoutMutate()
+
+      queryClient.clear()
+
+      router.replace(SIGN_IN_ROUTE)
+
+      router.refresh()
+    } catch (err) {
+      // Falha de rede aqui é o pior caso: o cookie continua de pé. Melhor avisar do que fingir que saiu.
+      toast.error(getApiErrorMessage(err, 'Não foi possível encerrar a sessão. Verifique sua conexão e tente novamente.'))
+    }
+  }
+
+  if (isLoadingProfile) {
     return (
       <>
         <Skeleton className="hidden h-4 w-32 bg-white/10 sm:block" />
@@ -41,23 +65,56 @@ export function PanelUser() {
     )
   }
 
-  // Sem perfil e sem carregamento é erro de leitura (sessão caída, API fora). Não há placeholder honesto
-  // para mostrar aqui — a próxima navegação passa pelo `proxy.ts`, que devolve o usuário ao login.
   if (!data) return null
 
-  const { name, imageUrl } = data.employee
+  const { name, imageUrl, role, email } = data.employee
 
   return (
     <>
       <p className="hidden text-sidebar-foreground/80 text-sm sm:block">{name}</p>
 
-      <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/10 ring-1 ring-white/15">
-        {imageUrl ? (
-          <Image src={imageUrl} alt={name} fill sizes="32px" className="object-cover" priority />
-        ) : (
-          <span className="font-semibold text-[11px] text-white">{getInitials(name)}</span>
-        )}
-      </div>
+      <DropdownMenu>
+        {/* O nome ao lado some no mobile, e as iniciais do fallback não descrevem a ação — daí o rótulo fixo. */}
+        <DropdownMenuTrigger aria-label="Abrir menu do usuário" className="cursor-pointer rounded-md outline-none">
+          <Avatar className="rounded-md after:rounded-md">
+            {imageUrl && <AvatarImage src={imageUrl} alt={name} className="rounded-md" />}
+
+            {/* Sempre montado: o primitivo o exibe tanto sem `imageUrl` quanto quando a foto falha ao carregar. */}
+            <AvatarFallback className="rounded-md">{getInitials(name)}</AvatarFallback>
+          </Avatar>
+        </DropdownMenuTrigger>
+
+        {/* Largura fixa: o padrão do componente é `w-(--anchor-width)`, e a âncora aqui é o avatar de 32px. */}
+        <DropdownMenuContent align="end" className="w-60">
+          <div className="flex flex-col gap-0.5 px-1.5 py-1.5">
+            <p className="truncate font-medium text-sm">{name}</p>
+            <p className="truncate text-muted-foreground text-xs">{email}</p>
+            <p className="mt-1 text-[10px] text-muted-foreground uppercase tracking-widest">{ROLE_LABELS[role]}</p>
+          </div>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem className="cursor-pointer">
+            <SettingsIcon />
+            Configurações de Conta
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            variant="destructive"
+            className="cursor-pointer"
+            disabled={isLoggingOut}
+            // O menu fica aberto durante a chamada: fechá-lo antes da hora daria a impressão de que o
+            // logout terminou, quando ele ainda pode falhar e devolver um toast de erro.
+            closeOnClick={false}
+            onClick={handleLogout}
+          >
+            {isLoggingOut ? <LoaderCircleIcon className="animate-spin" /> : <LogOutIcon />}
+            {isLoggingOut ? 'Saindo...' : 'Sair do sistema'}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </>
   )
 }

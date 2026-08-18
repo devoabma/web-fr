@@ -7,11 +7,6 @@ import { PanelUser } from './panel-user'
 export function PanelHeader() {
   return (
     <header className="relative z-20 flex h-12 w-full shrink-0 items-center justify-between gap-4 border-sidebar-border border-b bg-sidebar pr-4 pl-2 text-sidebar-foreground">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_60%_at_15%_-10%,rgba(255,255,255,0.09),transparent_70%)]"
-      />
-
       <div className="relative flex items-center gap-2">
         {/* Só no mobile: a sidebar vira sheet e sem este gatilho não há como abri-la. */}
         <SidebarTrigger
@@ -22,7 +17,6 @@ export function PanelHeader() {
         <Link href="/panel" className="flex items-center gap-2.5">
           <BrandMark className="size-8 shrink-0 text-white" />
 
-          {/* Marca do produto, não título da página: o `h1` pertence ao conteúdo de cada rota. */}
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-bold text-sm text-white tracking-tight sm:text-base">Sala Livre</span>
             <span className="truncate text-[10px] text-sidebar-foreground/55 uppercase tracking-widest">Gestão de Salas</span>
@@ -31,8 +25,6 @@ export function PanelHeader() {
       </div>
 
       <div className="relative flex items-center gap-3">
-        {/* Branco translúcido, e não `bg-primary`: no tema claro `--primary` é o mesmo azul de `--sidebar`. */}
-        {/* TODO: status real do sistema — hoje é fixo, ainda não há healthcheck consultado pelo painel. */}
         <Badge className="border-white/15 bg-white/10 text-sidebar-foreground">
           <span className="size-1.5 min-w-1.5 animate-pulse rounded-full bg-emerald-400" />
           All OK

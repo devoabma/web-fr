@@ -54,7 +54,8 @@
 - [x] 6.4 `skeleton` do tamanho final enquanto o perfil não chega
 - [x] 6.5 Iniciais do nome quando não há foto
 - [x] 6.6 `PanelHeader` volta a Server Component, com a marca e o gatilho sempre montados
-- [x] 6.7 Restaurar o brilho radial da barra, perdido na primeira integração
+- [x] 6.7 Restaurar o brilho radial da barra, perdido na primeira integração — **superado**: removido de vez
+      por decisão de design na change `menu-do-usuario-e-logout`
 - [x] 6.8 `next.config.ts` — liberar o host do Supabase em `images.remotePatterns`
 
 ## 7. Verificação
@@ -69,7 +70,8 @@
 
 ## 8. Próximos passos (fora desta change)
 
-- [ ] 8.1 Logout — a API não expõe rota; hoje a sessão só termina por expiração
+- [x] 8.1 Logout — resolvido pela change `menu-do-usuario-e-logout`: a `api-fr` passou a expor
+      `POST /employees/session/logout` em 2026-08-17
 - [ ] 8.2 Esconder a seção "Administração" da sidebar para `MEMBER`
 - [ ] 8.3 "Manter-me conectado" — decorativo: a API aceita só `{ cpf, password }` e fixa o cookie em 1 dia.
       Decidir entre remover o campo ou pedir suporte na `api-fr`

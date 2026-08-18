@@ -63,8 +63,13 @@
       pela tela de login, mas inexistente
 - [ ] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`)
 - [ ] Trocar senha do usuário logado (`PATCH /employees/change-password`)
-- [ ] Logout — **a `api-fr` não expõe rota**; hoje a sessão só termina por expiração (1 dia) ou por descarte
-      do cookie inservível pelo proxy
+- [ ] Tela de configurações de conta — o item já existe no menu do usuário, mas está **inerte**: não há
+      destino para onde levar
+- [x] Logout (`POST /employees/session/logout`) pelo menu do usuário — a API apaga o cookie `httpOnly`, o
+      painel limpa o cache do React Query e devolve ao login. Falha de rede avisa por toast e **não** navega,
+      porque a sessão continua de pé
+- [ ] Denylist de token na `api-fr` — o logout hoje remove o cookie, mas um JWT já copiado segue aceito até
+      expirar (1 dia)
 - [ ] "Manter-me conectado" é decorativo: a API aceita só `{ cpf, password }` e fixa o cookie em 1 dia.
       Decidir entre remover o campo ou pedir suporte na `api-fr`
 - [ ] Revisar `Domain`/`SameSite` do cookie quando painel e API forem para domínios distintos em produção
@@ -84,6 +89,8 @@
 - [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
 - [x] Bloco de usuário da barra superior com dados da sessão (`GET /employees/profile`), com `skeleton`
       durante o carregamento e iniciais do nome quando não há foto
+- [x] Menu do usuário no avatar da barra superior: nome, e-mail, papel traduzido e saída do sistema, com
+      `aria-label` no gatilho (abaixo de 640px o nome ao lado não é exibido)
 - [ ] Status real do sistema no lugar do badge fixo "All OK" (nada consulta o `/health` da API ainda)
 - [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado) —
       o `proxy.ts` já barra o acesso, falta esconder o item

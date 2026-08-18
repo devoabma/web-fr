@@ -80,6 +80,7 @@ src/
 ├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
+│   ├── index.ts                   # helpers sem dependência (getInitials)
 │   ├── masks/                     # máscaras de entrada (CPF)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/
@@ -138,8 +139,16 @@ uma falha de XSS não valha sessão roubada; copiá-lo para `localStorage` anula
 > repositório precisa espelhar esse valor: é com ele que o `proxy.ts` **apaga** o cookie inservível, e um
 > `delete` host-only não remove cookie gravado com `Domain=`.
 
-**Não há rota de logout.** A sessão termina por expiração (1 dia) ou quando o `proxy.ts` descarta um cookie
-inservível.
+**Logout:** `POST /employees/session/logout` (pública, sem JWT) responde `200 { message }` e devolve um
+`clearCookie` com os mesmos atributos da gravação. Atenção ao prefixo `/employees` — chamar `/session/logout`
+devolve `404`. A requisição precisa ir com credenciais (o `withCredentials` do `axios`), ou o navegador
+descarta a instrução de remoção e o funcionário continua logado.
+
+> ⚠️ **O logout apaga o cookie, não invalida o token.** A `api-fr` não mantém denylist: um JWT já copiado
+> segue aceito até expirar (1 dia). Como o painel nunca expõe o token ao JavaScript, o vetor exige acesso
+> prévio ao cookie `httpOnly` — mas a ressalva vale em máquina compartilhada.
+
+Além do logout, a sessão termina por expiração (1 dia) ou quando o `proxy.ts` descarta um cookie inservível.
 
 ### Sessão e guarda de rotas
 
@@ -294,16 +303,44 @@ larguras.
 > conteúdo salta quando a barra reaparece. O estado de carregamento pertence ao bloco de usuário, com
 > `skeleton` do tamanho final.
 
-`GET /employees/profile` declara **`imageUrl` anulável** — funcionário sem foto cadastrada. Entregar `null`
-ao `src` do `next/image` estoura em tempo de execução; o fallback são as iniciais do nome sobre a mesma
-moldura. O perfil é consultado com `staleTime` infinito e descartado por `queryClient.clear()` no login,
-para não atravessar de um funcionário para outro na mesma aba.
+`GET /employees/profile` declara **`imageUrl` anulável** — funcionário sem foto cadastrada. O bloco de
+usuário usa `Avatar`/`AvatarImage`/`AvatarFallback` do base-ui em vez de `next/image`: o primitivo troca
+para as iniciais tanto quando não há URL quanto quando o carregamento falha, caso que o `next/image` não
+cobria. As iniciais vêm de `getInitials` em `src/utils/index.ts` — compartilhado, para a barra e as
+listagens do inventário nunca divergirem para o mesmo nome.
+
+O perfil é consultado com `staleTime` infinito e descartado por `queryClient.clear()` **no login e na
+saída**, para não atravessar de um funcionário para outro na mesma aba.
+
+**Menu do usuário.** O avatar é o gatilho de um `DropdownMenu` com nome, e-mail, papel traduzido
+(`ROLE_LABELS`, um `Record<Role, string>` — mapa exaustivo, para o TypeScript cobrar um papel novo do enum),
+o atalho de configurações de conta (**inerte**, a tela ainda não existe) e a saída do sistema.
+
+> ⚠️ **A largura do menu é fixa (`w-60`).** O padrão do `DropdownMenuContent` é `w-(--anchor-width)`, e a
+> âncora aqui é um avatar de 32px. E a sintaxe importa: no Tailwind v4 a leitura de variável em valor
+> arbitrário é `w-(--anchor-width)`; a forma v3 `w-[--anchor-width]` gera `width: --anchor-width`, que o
+> navegador descarta — e, como o `tailwind-merge` só mantém a última classe do grupo, ela **silencia** o
+> padrão sem colocar nada no lugar.
+
+O gatilho leva `aria-label="Abrir menu do usuário"`: abaixo de 640px o nome ao lado do avatar não é exibido
+e o nome acessível do botão seriam as iniciais, que não descrevem ação nenhuma.
+
+**A saída chama a API porque o cookie é `httpOnly`** — o JavaScript do painel não o enxerga nem o apaga. A
+ordem é `await logout()` → `queryClient.clear()` → `router.replace(SIGN_IN_ROUTE)` → `router.refresh()`
+(`replace` para o painel não voltar pelo histórico; `refresh` para descartar o cache de rotas do App Router).
+Enquanto a chamada corre, o item fica desabilitado, troca o ícone por um `spinner` e o menu **não fecha**
+(`closeOnClick={false}`).
+
+> ⚠️ **Falha no logout não navega.** Se a requisição não completa, o cookie continua válido: mostrar a tela
+> de login convenceria o funcionário de que saiu, e a próxima pessoa na mesma máquina entraria com a sessão
+> dele. O `catch` emite um toast e mantém tudo no lugar.
 
 Realces sobre a barra superior e a sidebar usam **branco translúcido**, nunca `bg-primary`: no tema claro
 `--primary` e `--sidebar` são o mesmo azul, e um elemento `bg-primary` desapareceria dentro da superfície
-de marca. É a mesma regra já aplicada em `--sidebar-accent`. Pela mesma lógica, o brilho radial que abre a
-barra superior no canto da marca é branco translúcido em gradiente — uma `div` puramente decorativa, e por
-isso `aria-hidden` e `pointer-events-none`, para não entrar na árvore de acessibilidade nem roubar cliques.
+de marca. É a mesma regra já aplicada em `--sidebar-accent`.
+
+> O brilho radial que já abriu a barra superior no canto da marca foi **removido** por decisão de design: a
+> marca e o badge de status dão peso suficiente ao topo.
 
 A marca da barra superior é `<span>`, não `<h1>`. Como ela é parte da moldura, um `h1` ali daria a toda tela
 do painel um cabeçalho de nível 1 sem relação com o conteúdo — o `h1` pertence a cada `page.tsx`.

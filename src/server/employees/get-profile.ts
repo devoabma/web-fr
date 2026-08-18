@@ -6,8 +6,6 @@ export interface EmployeeProfile {
   name: string
   cpf: string
   email: string
-  // A API declara `imageUrl` como anulável: funcionário que nunca subiu foto não tem URL. Tipar como
-  // `string` faria o `next/image` receber `null` e estourar em tempo de execução ("Failed to parse src").
   imageUrl: string | null
   role: Role
 }
