@@ -1,7 +1,7 @@
-import type { Computer } from '../_data/rooms'
+import type { ComputerView } from '../_data/computer-view'
 
 type StatusSummaryProps = {
-  computers: Computer[]
+  computers: ComputerView[]
 }
 
 /** Contagem por estado: quem chega no balcão quer saber "tem máquina livre?" antes de olhar card por card. */

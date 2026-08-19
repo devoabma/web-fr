@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ReleasesBoard } from './_components/releases-board'
 import { ReleasesNotice } from './_components/releases-notice'
 
@@ -14,7 +16,11 @@ export default function PanelPage() {
 
       <ReleasesNotice />
 
-      <ReleasesBoard />
+      {/* O board lê a sala da URL com `useSearchParams`, e sem esta fronteira o build falha
+          ao tentar pré-renderizar a página. */}
+      <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
+        <ReleasesBoard />
+      </Suspense>
     </>
   )
 }

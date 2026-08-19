@@ -17,18 +17,19 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input'
 import { maskBirthDate } from '@/utils/masks/birth-date'
 import { maskCpf } from '@/utils/masks/cpf'
-import type { Computer } from '../_data/rooms'
+import type { ComputerView } from '../_data/computer-view'
 import { type ReleaseComputerFormType, useReleaseComputerForm } from './release-computer-schema'
 
 type ReleaseComputerDialogProps = {
   /** O computador alvo; `null` mantém o diálogo fechado. */
-  computer: Computer | null
+  computer: ComputerView | null
   roomName: string
+  isPending: boolean
   onClose: () => void
   onConfirm: (data: ReleaseComputerFormType) => void
 }
 
-export function ReleaseComputerDialog({ computer, roomName, onClose, onConfirm }: ReleaseComputerDialogProps) {
+export function ReleaseComputerDialog({ computer, roomName, isPending, onClose, onConfirm }: ReleaseComputerDialogProps) {
   const form = useReleaseComputerForm()
 
   const {
@@ -45,13 +46,14 @@ export function ReleaseComputerDialog({ computer, roomName, onClose, onConfirm }
     if (computer) reset()
   }, [computer, reset])
 
+  // Quem fecha é o container, e só depois do sucesso: uma liberação recusada (CPF que não confere,
+  // advogado inadimplente) precisa manter o formulário na tela com os dados já digitados.
   function handleRelease(data: ReleaseComputerFormType) {
     onConfirm(data)
-    onClose()
   }
 
   return (
-    <Dialog open={!!computer} onOpenChange={open => !open && onClose()}>
+    <Dialog open={!!computer} onOpenChange={open => !open && !isPending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Liberar {computer?.name}</DialogTitle>
@@ -134,11 +136,11 @@ export function ReleaseComputerDialog({ computer, roomName, onClose, onConfirm }
         </form>
 
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+          <DialogClose render={<Button variant="outline" disabled={isPending} />}>Cancelar</DialogClose>
 
-          <Button type="submit" form="release-computer-form">
+          <Button type="submit" form="release-computer-form" disabled={isPending}>
             <LockOpenIcon data-icon="inline-start" />
-            Confirmar liberação
+            {isPending ? 'Liberando...' : 'Confirmar liberação'}
           </Button>
         </DialogFooter>
       </DialogContent>
