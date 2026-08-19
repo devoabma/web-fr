@@ -86,7 +86,8 @@
 - [x] Item ativo por `usePathname`, casando rotas de detalhe, com `aria-current="page"`
 - [x] Recolhimento preservado entre recargas: cookie `sidebar_state` lido no servidor como `defaultOpen`
 - [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px, aberta pelo gatilho da barra superior
-- [x] Rota `/panel` criada como placeholder — primeira rota do grupo `(private)`
+- [x] Rota `/panel` criada — primeira rota do grupo `(private)`; deixou de ser placeholder e passou a
+      abrigar a visão da sala (seção 4)
 - [x] Bloco de usuário da barra superior com dados da sessão (`GET /employees/profile`), com `skeleton`
       durante o carregamento e iniciais do nome quando não há foto
 - [x] Menu do usuário no avatar da barra superior: nome, e-mail, papel traduzido e saída do sistema, com
@@ -105,12 +106,24 @@
 
 ## 4. Painel — visão da sala
 
-- [ ] Seleção de sala a partir de `GET /rooms/get-all` (escopo já filtrado por papel na API)
-- [ ] Grade de computadores com os três estados em tempo quase real
-- [ ] Colocar/retirar de manutenção (`PATCH /computers/maintenance/:id` e `.../remove`)
-- [ ] Encerrar sessão de um advogado (`POST /lawyers/close-computer/:sessionId`)
-- [ ] Contador de tempo restante por sessão
-- [ ] ⛔ Liberar computador manualmente — **bloqueado: rota não existe na API**
+- [x] Cabeçalho da tela e aviso de uso: o advogado se libera sozinho na máquina, o painel é o caminho de
+      exceção (oculto abaixo de 640px, para não empurrar a sala para fora da dobra)
+- [x] Seleção de sala a partir de `GET /rooms/get-all` (escopo já filtrado por papel na API) — sala inativa
+      fora da lista, primeira sala ativa assumida como padrão, com estados de carregamento, erro e vazio
+- [x] Colaboradores da sala em fileira de avatares, deduplicados por funcionário (`employeesRooms` é o
+      vínculo, não a pessoa), excedente em contador com os nomes no tooltip
+- [x] Cota diária e total de computadores da sala selecionada
+- [~] Grade de computadores com os três estados — `ComputerCard` e `StatusSummary` prontos sobre dados
+      fake, **ainda não montados** no quadro; falta traduzir `inUse`/`maintenance` da API para o `status`
+      de três valores. "Tempo quase real" depende do item 8
+- [~] Colocar/retirar de manutenção (`PATCH /computers/maintenance/:id` e `.../remove`) — botão e travas
+      no card (desabilitado com máquina em uso, com tooltip explicando), sem chamada à API
+- [~] Encerrar sessão de um advogado (`POST /lawyers/close-computer/:sessionId`) — diálogo de confirmação
+      pronto, sem chamada à API
+- [~] Contador de tempo restante por sessão — formatação `hh:mm` e barra de saldo no card, com dados fake;
+      falta a leitura real do saldo do advogado
+- [ ] ⛔ Liberar computador manualmente — **bloqueado: rota não existe na API**. Diálogo e validação
+      (CPF, nº da OAB e data de nascimento, com máscara e recusa de data impossível) já prontos, sem destino
 
 ---
 

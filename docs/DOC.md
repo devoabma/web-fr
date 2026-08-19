@@ -67,7 +67,7 @@ src/
 │   │       └── sign-in/           # login (page + _components)
 │   └── (private)/                 # painel autenticado
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
-│       ├── panel/                 # /panel — placeholder
+│       ├── panel/                 # /panel — visão da sala (page + _components + _data fake)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -76,12 +76,14 @@ src/
 │   │   └── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
 │   └── ui/                        # primitivas shadcn/base-ui
 ├── constants/query-keys.ts        # chaves do React Query, centralizadas
-├── server/employees/              # funções de acesso à api-fr, uma por endpoint
+├── server/                        # funções de acesso à api-fr, uma por endpoint
+│   ├── employees/                 # perfil, login e logout
+│   └── rooms/                     # get-all.ts (GET /rooms/get-all)
 ├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── index.ts                   # helpers sem dependência (getInitials)
-│   ├── masks/                     # máscaras de entrada (CPF)
+│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/
     ├── utils.ts                   # cn() — clsx + tailwind-merge
@@ -245,7 +247,7 @@ Confirmar antes de planejar as telas correspondentes.
 | --- | --- | --- |
 | `/` | — | landing pública, pronta |
 | `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
-| `/panel` | `(private)` | shell pronto, conteúdo placeholder; **protegida pelo `proxy.ts`** |
+| `/panel` | `(private)` | visão da sala: seleção, colaboradores e cota; grade de computadores pendente. **Protegida pelo `proxy.ts`** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
@@ -344,6 +346,67 @@ de marca. É a mesma regra já aplicada em `--sidebar-accent`.
 
 A marca da barra superior é `<span>`, não `<h1>`. Como ela é parte da moldura, um `h1` ali daria a toda tela
 do painel um cabeçalho de nível 1 sem relação com o conteúdo — o `h1` pertence a cada `page.tsx`.
+
+### Visão da sala (`/panel`)
+
+Primeira tela de operação. Responde a pergunta feita no balcão — *"tem máquina livre?"* — e é composta por
+cabeçalho, aviso de uso e o quadro da sala (`_components/releases-board.tsx`).
+
+**O aviso vem antes do quadro** (`releases-notice.tsx`) porque corrige uma premissa: quem abre esta tela
+tende a achar que é aqui que se libera computador. Não é — **o próprio advogado se libera na máquina**, e o
+painel é o caminho de exceção. O aviso é `hidden sm:flex`: no celular, três parágrafos empurrariam a sala
+para fora da dobra, e quem abre o painel no celular está no balcão.
+
+**A seleção de sala lê `GET /rooms/get-all`** (`src/server/rooms/get-all.ts`). O escopo por papel já vem
+resolvido pela API — o painel **não** filtra por permissão. O que ele filtra é `inactive`: sala fora de
+operação sai da lista em vez de aparecer desabilitada, porque não tem nada a oferecer e listá-la só gera a
+pergunta "por que não posso escolher esta?".
+
+> A sala exibida é **derivada**, não gravada: `rooms.find(...) ?? rooms.at(0)`. Gravar o padrão com um
+> `useEffect` custaria um render com o quadro montado e nenhuma sala escolhida, mais um efeito que precisa
+> saber não sobrescrever a escolha do usuário. Derivar resolve os dois e ainda cobre a sala que some da
+> lista entre dois `fetch` (inativada por um `ADMIN`): em vez de tela quebrada, volta para a primeira.
+
+> ⚠️ **`employeesRooms` é o vínculo, não o funcionário.** A mesma pessoa pode ter dois registros para a
+> mesma sala, e o avatar apareceria duplicado. `room-employees.tsx` reduz por `employees.id` com um `Map`
+> antes de renderizar — defesa contra o dado, não contra a interface. Acima de quatro avatares o excedente
+> vira `+N` com os nomes no tooltip; zero colaboradores não renderiza nem o rótulo.
+
+O `standardTime` é a cota **da sala** e vale **por dia**, compartilhada entre as máquinas — não é crédito
+por computador. O texto da faixa diz isso literalmente, porque a leitura errada muda o atendimento.
+
+Carregamento, erro e vazio são três estados distintos. O `skeleton` reproduz a estrutura do resultado (não
+um retângulo genérico), senão a faixa muda de altura quando os dados chegam e empurra o conteúdo abaixo.
+"Não foi possível carregar" pede nova tentativa; "nenhuma sala ativa" é um fato sobre o cadastro, e
+insistir não muda.
+
+> ⚠️ **A grade de computadores ainda não está no ar.** `computer-card.tsx`, `status-summary.tsx`,
+> `release-computer-dialog.tsx` e `close-session-dialog.tsx` estão prontos e **não são importados por tela
+> alguma** — leem o `_data/rooms.ts` fake, com `status: 'available' | 'in-use' | 'maintenance'`. A API
+> entrega outra coisa: `inUse` e `maintenance` como booleanos independentes, este último anulável. Montar a
+> grade exige a tradução entre os dois modelos e uma decisão sobre `inUse && maintenance`, que os booleanos
+> permitem representar e o `status` de três valores não.
+
+> ⚠️ **Datas do card levam `timeZone: 'America/Fortaleza'` fixo.** O card é client component, mas o Next
+> também o renderiza no servidor — e servidor em UTC formataria hora diferente da do navegador, o que o
+> React acusa como erro de hidratação. Pela mesma razão o `_data/rooms.ts` é constante: nada de `new Date()`
+> nem `Math.random()` em dado fake que atravessa servidor e cliente.
+
+Detalhes de interface que valem para as próximas telas:
+
+- **Tempo é relógio, não número**: `01:12` em vez de "72 minutos" — no balcão se lê de relance. A barra ao
+  lado existe para a leitura ainda mais rápida: o número diz quanto falta, a barra diz se é muito ou pouco.
+- **Tooltip em botão desabilitado precisa de `span` envolvente.** Botão desabilitado não dispara evento de
+  ponteiro; sem o wrapper, a explicação de por que ele está travado nunca apareceria.
+- **`uppercase` é marcador de rótulo**, não de conteúdo. Nome de sala e de máquina vão em caixa normal —
+  caixa alta competiria com a etiqueta acima e prejudicaria a leitura de nome longo.
+- **Texto longo no `Select`**: o popup tem largura travada em `w-(--anchor-width)` e o `ItemText` do base-ui
+  herda `whitespace-nowrap` com `min-width: auto`. Contenção exige as três peças juntas — `min-w-0` no item
+  (zera a contribuição de largura mínima), `whitespace-normal` (para poder quebrar) e `line-clamp-2`.
+- **Data validada por reconstrução**: regex `dd/mm/aaaa` sozinha aceita 31/02, porque o `Date` normaliza o
+  dia inválido para o mês seguinte em silêncio. O schema monta o `Date` e compara os campos de volta.
+- **`reset()` ao abrir o diálogo de liberação**: sem isso o CPF do advogado anterior reaparece na máquina
+  seguinte, e o balconista libera a pessoa errada sem perceber.
 
 ---
 
