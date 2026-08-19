@@ -41,8 +41,8 @@ export function CloseSessionDialog({ computer, isPending, onClose, onConfirm }: 
           <AlertDialogTitle>Encerrar a sessão do {computer?.name}?</AlertDialogTitle>
 
           <AlertDialogDescription>
-            {computer?.session?.lawyerName} perde o acesso à máquina agora. O tempo não utilizado continua disponível na cota
-            do dia.
+            {computer?.session?.lawyerName} perde o acesso à máquina agora. O tempo não utilizado continua disponível na cota do
+            dia.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

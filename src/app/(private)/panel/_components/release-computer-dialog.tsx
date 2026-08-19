@@ -59,8 +59,7 @@ export function ReleaseComputerDialog({ computer, roomName, isPending, onClose, 
           <DialogTitle>Liberar {computer?.name}</DialogTitle>
 
           <DialogDescription>
-            {roomName} · confira os dados na carteira da OAB antes de liberar. A liberação vale para a cota do dia do
-            advogado.
+            {roomName} · confira os dados na carteira da OAB antes de liberar. A liberação vale para a cota do dia do advogado.
           </DialogDescription>
         </DialogHeader>
 

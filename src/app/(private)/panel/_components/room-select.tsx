@@ -33,9 +33,7 @@ export function RoomSelect({ rooms, value, onValueChange }: RoomSelectProps) {
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate font-medium">{room.name}</span>
                 {!!room.description && (
-                  <span className="line-clamp-2 whitespace-normal text-muted-foreground text-xs">
-                    {room.description}
-                  </span>
+                  <span className="line-clamp-2 whitespace-normal text-muted-foreground text-xs">{room.description}</span>
                 )}
               </div>
             </SelectItem>
