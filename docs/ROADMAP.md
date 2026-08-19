@@ -113,17 +113,24 @@
 - [x] Colaboradores da sala em fileira de avatares, deduplicados por funcionário (`employeesRooms` é o
       vínculo, não a pessoa), excedente em contador com os nomes no tooltip
 - [x] Cota diária e total de computadores da sala selecionada
-- [~] Grade de computadores com os três estados — `ComputerCard` e `StatusSummary` prontos sobre dados
-      fake, **ainda não montados** no quadro; falta traduzir `inUse`/`maintenance` da API para o `status`
-      de três valores. "Tempo quase real" depende do item 8
-- [~] Colocar/retirar de manutenção (`PATCH /computers/maintenance/:id` e `.../remove`) — botão e travas
-      no card (desabilitado com máquina em uso, com tooltip explicando), sem chamada à API
-- [~] Encerrar sessão de um advogado (`POST /lawyers/close-computer/:sessionId`) — diálogo de confirmação
-      pronto, sem chamada à API
-- [~] Contador de tempo restante por sessão — formatação `hh:mm` e barra de saldo no card, com dados fake;
-      falta a leitura real do saldo do advogado
-- [ ] ⛔ Liberar computador manualmente — **bloqueado: rota não existe na API**. Diálogo e validação
-      (CPF, nº da OAB e data de nascimento, com máscara e recusa de data impossível) já prontos, sem destino
+- [x] Sala escolhida vive na URL (`?sala=`) — a tela recarrega e se compartilha sem perder o contexto
+- [x] Grade de computadores com os três estados, montada sobre a API — os computadores vêm embutidos em
+      `GET /rooms/get-all`, **não** de `GET /computers/get-all`, que é ADMIN-only e devolveria `401` ao
+      funcionário comum. Ordenada por número, porque a API não ordena
+- [x] Contagem por estado (disponíveis / em uso / em manutenção) na faixa da sala
+- [x] Colocar/retirar de manutenção (`PATCH /computers/maintenance/:id` e `.../remove`) — ação direta, sem
+      diálogo; ausente no card em uso, porque a API recusa com `400` enquanto houver sessão
+- [x] Encerrar sessão de um advogado (`POST /lawyers/close-computer/:sessionId`) — diálogo destrutivo que
+      só fecha no sucesso, com o saldo restante no retorno
+- [x] Liberar computador manualmente (`POST /lawyers/release-computer`) — a rota **existe e é pública**,
+      recebe `macCode` e serve o painel sem alteração; a marcação anterior de bloqueio estava errada.
+      `birth` vai em `DDMMYYYY`, sem barras
+- [x] Aviso quando `notified` volta falso: a sessão foi gravada mas a estação está offline e não destrava
+- [x] Contador de tempo restante por sessão — `hh:mm` e barra de saldo, lidos de
+      `GET /lawyers/get-all-releases/:roomId`
+- [x] Degradação honesta quando as sessões não carregam: a ocupação da sala é preservada e uma faixa âmbar
+      explica o que faltou, em vez de mostrar tudo como disponível
+- [~] Atualização do saldo por polling de 30s — o cálculo é do servidor. Tempo real depende do item 8
 
 ---
 
@@ -181,8 +188,10 @@
 Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para destravar este painel:
 
 1. **Paginação reutilizável** — afeta todas as listagens.
-2. **Liberar computador manualmente** — é a ação central do painel de sala.
-3. **Download do arquivo de impressão** — sem ele a fila é só leitura.
-4. **Restringir o CORS ao `WEB_URL`** — habilita a sessão por cookie `httpOnly`.
-5. **Eventos de negócio no WebSocket** — troca polling por tempo real.
-6. **Relatórios**.
+2. **Download do arquivo de impressão** — sem ele a fila é só leitura.
+3. **Eventos de negócio no WebSocket** — troca polling por tempo real.
+4. **Relatórios**.
+
+> **Resolvidos:** _liberar computador manualmente_ saiu desta lista — `POST /lawyers/release-computer` já
+> existia, é pública e recebe `macCode`; nunca foi bloqueio. _Restringir o CORS ao `WEB_URL`_ foi feito na
+> `api-fr` e habilitou a sessão por cookie `httpOnly`.

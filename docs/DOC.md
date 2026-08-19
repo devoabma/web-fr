@@ -67,7 +67,7 @@ src/
 │   │       └── sign-in/           # login (page + _components)
 │   └── (private)/                 # painel autenticado
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
-│       ├── panel/                 # /panel — visão da sala (page + _components + _data fake)
+│       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -78,7 +78,9 @@ src/
 ├── constants/query-keys.ts        # chaves do React Query, centralizadas
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login e logout
-│   └── rooms/                     # get-all.ts (GET /rooms/get-all)
+│   ├── rooms/                     # get-all.ts (GET /rooms/get-all)
+│   ├── computers/                 # entrada e saída de manutenção
+│   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
@@ -207,6 +209,8 @@ Tetos de rate limit relevantes ao painel:
 | `POST /employees/session/auth` | 5 | 10 min | IP + CPF |
 | `POST /employees/password-recovery` | 5 | 15 min | IP |
 | `POST /employees/reset-password` | 10 | 10 min | IP |
+| `POST /lawyers/release-computer` | 10 | 1 min | IP + `macCode` |
+| `POST /lawyers/close-computer/:sessionId` | 30 | 1 min | IP |
 
 > O login é o caso mais sensível: cinco tentativas por 10 minutos contadas por IP + CPF. Um usuário que
 > erra a senha algumas vezes bate o teto — a UI precisa dizer quanto falta esperar, não apenas "erro".
@@ -233,7 +237,9 @@ Confirmar antes de planejar as telas correspondentes.
 
 - **Paginação não existe em nenhuma listagem**, embora o requisito não-funcional exija 10 itens por página.
   Afeta funcionários, salas, computadores, sessões e impressões.
-- **Liberar computador manualmente pelo funcionário** — requisito previsto, rota não implementada.
+- ~~**Liberar computador manualmente pelo funcionário**~~ — **falso alarme, corrigido em 2026-08-19.**
+  `POST /lawyers/release-computer` sempre existiu, é **pública** e identifica a máquina pelo `macCode`. Foi
+  desenhada para o Desktop e serve o painel sem alteração alguma.
 - **Baixar arquivo da fila de impressão** — a listagem existe, o download não.
 - **Relatórios** — nada implementado.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
@@ -247,7 +253,7 @@ Confirmar antes de planejar as telas correspondentes.
 | --- | --- | --- |
 | `/` | — | landing pública, pronta |
 | `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
-| `/panel` | `(private)` | visão da sala: seleção, colaboradores e cota; grade de computadores pendente. **Protegida pelo `proxy.ts`** |
+| `/panel` | `(private)` | sala e operação das máquinas: seleção (`?sala=`), colaboradores, cota, grade e as quatro ações. **Protegida pelo `proxy.ts`** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
@@ -347,10 +353,12 @@ de marca. É a mesma regra já aplicada em `--sidebar-accent`.
 A marca da barra superior é `<span>`, não `<h1>`. Como ela é parte da moldura, um `h1` ali daria a toda tela
 do painel um cabeçalho de nível 1 sem relação com o conteúdo — o `h1` pertence a cada `page.tsx`.
 
-### Visão da sala (`/panel`)
+### Sala e operação das máquinas (`/panel`)
 
-Primeira tela de operação. Responde a pergunta feita no balcão — *"tem máquina livre?"* — e é composta por
-cabeçalho, aviso de uso e o quadro da sala (`_components/releases-board.tsx`).
+Primeira tela de operação. Responde a pergunta feita no balcão — *"tem máquina livre?"* — e deixa agir
+sobre a resposta. É composta por cabeçalho, aviso de uso, o quadro da sala e a grade de computadores, todos
+orquestrados por `_components/releases-board.tsx`, que é o único componente com estado: os cards são burros
+e recebem callbacks, e os diálogos moram no container, um de cada, guardando só a máquina alvo.
 
 **O aviso vem antes do quadro** (`releases-notice.tsx`) porque corrige uma premissa: quem abre esta tela
 tende a achar que é aqui que se libera computador. Não é — **o próprio advogado se libera na máquina**, e o
@@ -380,17 +388,86 @@ um retângulo genérico), senão a faixa muda de altura quando os dados chegam e
 "Não foi possível carregar" pede nova tentativa; "nenhuma sala ativa" é um fato sobre o cadastro, e
 insistir não muda.
 
-> ⚠️ **A grade de computadores ainda não está no ar.** `computer-card.tsx`, `status-summary.tsx`,
-> `release-computer-dialog.tsx` e `close-session-dialog.tsx` estão prontos e **não são importados por tela
-> alguma** — leem o `_data/rooms.ts` fake, com `status: 'available' | 'in-use' | 'maintenance'`. A API
-> entrega outra coisa: `inUse` e `maintenance` como booleanos independentes, este último anulável. Montar a
-> grade exige a tradução entre os dois modelos e uma decisão sobre `inUse && maintenance`, que os booleanos
-> permitem representar e o `status` de três valores não.
+#### A grade lê a sala, não a rota de computadores
+
+`GET /computers/get-all` parece a fonte natural da grade e **não serve a esta tela**: ela chama
+`checkIfEmployeeIsAdmin()`, e o painel é operado por `MEMBER` — a grade tomaria `401`. Os computadores
+continuam vindo embutidos na sala, o que ainda evita uma segunda requisição, mantém `Select` e grade na
+mesma fonte (duas fontes divergem quando uma revalida antes da outra) e preserva o escopo por papel já
+resolvido no servidor. `GET /computers/get-all` fica reservado à futura tela de inventário do `ADMIN`, onde
+o `room: { id, name }` que ela traz a mais é justamente o que falta.
+
+> ⚠️ **`maintenance` e `inactive` são data, não booleano.** A `api-fr` tipa os dois como
+> `z.date().nullable()`, que no JSON viram string ISO. O painel tipava `boolean | null` e o filtro
+> `!room.inactive` funcionava por acidente — string não vazia é verdadeira. Qualquer comparação estrita
+> (`=== true`) passaria a falhar em silêncio, e não há como formatar "em manutenção desde 12/08" a partir
+> de um booleano.
+
+#### Quem está em qual máquina
+
+O inventário diz que a máquina está ocupada; **quem** a ocupa vem de
+`GET /lawyers/get-all-releases/:roomId`. `_data/computer-view.ts` junta as duas leituras.
+
+> ⚠️ **Essa rota devolve o histórico inteiro da sala**, ordenado do mais recente para o mais antigo — não
+> há filtro de sessão aberta na API. O painel filtra `endDate === null` e indexa por `computer.id`, com um
+> `reverse()` antes do `Map` para a sessão mais recente vencer se duas aparecerem abertas na mesma máquina.
+
+> ⚠️ **A API não ordena os computadores.** O `select` de `computers` em `GET /rooms/get-all` não tem
+> `orderBy`: a ordem é a que o Postgres devolver e muda entre requisições. Com polling de 30s, a grade se
+> reembaralharia na frente do funcionário. A ordenação por `number` é do front, sobre uma **cópia** do
+> array — `sort` muta, e o array pertence ao cache do React Query.
+
+O `status` de três valores é derivado, nesta ordem: **manutenção → em uso → disponível**. Manutenção vence
+`inUse` porque máquina em manutenção com a marca de uso travada não pode convidar alguém a encerrar uma
+sessão que não existe. E "em uso" deriva de `session || inUse`, não só da sessão: se a leitura das
+liberações falhar, a grade ainda marca as ocupadas pelo `inUse` da sala, perde os detalhes e **não** passa
+a oferecer liberação por cima de quem está trabalhando. Uma faixa âmbar explica a degradação.
+
+#### As quatro ações do balcão
+
+| Ação | Rota | Onde aparece |
+| --- | --- | --- |
+| Liberar | `POST /lawyers/release-computer` (pública) | card disponível |
+| Encerrar sessão | `POST /lawyers/close-computer/:sessionId` | card em uso |
+| Enviar para manutenção | `PATCH /computers/maintenance/:id` | card disponível |
+| Devolver à operação | `PATCH /computers/maintenance/:id/remove` | card em manutenção |
+
+> ⚠️ **`birth` vai em `DDMMYYYY`, sem barras.** A API compara com o cadastro da OAB já formatado assim; o
+> formulário digita `dd/mm/aaaa`. Errar isso faz *toda* liberação falhar com "informações não conferem" —
+> a mensagem menos útil possível para depurar.
+
+> ⚠️ **`notified: false` é aviso, não erro.** A sessão foi gravada, mas o Desktop daquela máquina está
+> offline e não recebeu o evento. Liberando do balcão ninguém vê a tela do computador: sem o alerta, o
+> advogado caminha até uma máquina que continua travada.
+
+**Manutenção não é oferecida no card em uso** — a API recusa com `400` enquanto houver sessão, e oferecer o
+botão só entregaria um erro no clique. O caminho correto é encerrar a sessão primeiro, que o card já
+oferece. O `404` das rotas de manutenção é ambíguo de propósito (máquina inexistente e máquina fora das
+salas do funcionário respondem igual, para não vazar inventário): repasse a mensagem como veio, sem tentar
+interpretar.
+
+**Os diálogos não fecham no confirmar.** Quem fecha é o container, e só no sucesso. Uma liberação recusada
+— CPF que não confere, advogado inadimplente — fazia o diálogo sumir como se tivesse dado certo, e o
+funcionário redigitava tudo. `AlertDialogAction` aqui é um `Button` puro, não um `Close` do base-ui: não
+fecha sozinho e não precisa de `preventDefault`.
+
+**A pendência é por card, não por grade.** O `isPending` de uma mutação do React Query é global e
+desabilitaria a grade inteira a cada manutenção. Como a mutação carrega o `computerId` que recebeu,
+`variables` diz qual card está ocupado e só ele trava.
+
+#### Estado da tela
+
+A sala escolhida vive na URL (`?sala=<roomId>`), então a tela recarrega e se compartilha sem perder o
+contexto. Um valor inválido, ou de sala fora do escopo, cai na primeira da lista. O custo é a fronteira de
+`Suspense` em `page.tsx` — sem ela o build falha ao pré-renderizar por causa do `useSearchParams`.
+
+O saldo (`usedMinutes`, `remainingMinutes`) é calculado no **servidor** a cada requisição, então a tela
+revalida as liberações a cada 30s. Entre um refetch e outro o relógio está parado — para uma cota medida em
+dezenas de minutos, é ruído. Cai fora no dia em que a `api-fr` emitir eventos de negócio no WebSocket.
 
 > ⚠️ **Datas do card levam `timeZone: 'America/Fortaleza'` fixo.** O card é client component, mas o Next
 > também o renderiza no servidor — e servidor em UTC formataria hora diferente da do navegador, o que o
-> React acusa como erro de hidratação. Pela mesma razão o `_data/rooms.ts` é constante: nada de `new Date()`
-> nem `Math.random()` em dado fake que atravessa servidor e cliente.
+> React acusa como erro de hidratação.
 
 Detalhes de interface que valem para as próximas telas:
 
