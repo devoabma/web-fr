@@ -16,8 +16,6 @@ export default function PanelPage() {
 
       <ReleasesNotice />
 
-      {/* O board lê a sala da URL com `useSearchParams`, e sem esta fronteira o build falha
-          ao tentar pré-renderizar a página. */}
       <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
         <ReleasesBoard />
       </Suspense>

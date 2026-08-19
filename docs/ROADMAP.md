@@ -127,10 +127,12 @@
       `birth` vai em `DDMMYYYY`, sem barras
 - [x] Aviso quando `notified` volta falso: a sessão foi gravada mas a estação está offline e não destrava
 - [x] Contador de tempo restante por sessão — `hh:mm` e barra de saldo, lidos de
-      `GET /lawyers/get-all-releases/:roomId`
+      `GET /lawyers/get-all-releases/:roomId`, apresentados como `01h:12min`
 - [x] Degradação honesta quando as sessões não carregam: a ocupação da sala é preservada e uma faixa âmbar
       explica o que faltou, em vez de mostrar tudo como disponível
-- [~] Atualização do saldo por polling de 30s — o cálculo é do servidor. Tempo real depende do item 8
+- [x] Saldo andando sozinho na tela — o cálculo é do servidor, e o painel desconta os minutos decorridos
+      desde a resposta (`useElapsedMinutes`). O polling de 30s saiu: revalidação na montagem, na volta de
+      foco e depois de cada ação. Tempo real continua dependendo do item 8
 
 ---
 
@@ -179,7 +181,8 @@
 ## 8. Tempo real
 
 - [ ] ⛔ Consumir eventos da API por WebSocket — **bloqueado**: o canal atual é Desktop↔API, não é
-      autenticado e não emite `computer_released` / `session_started`. Até lá, polling.
+      autenticado e não emite `computer_released` / `session_started`. Até lá, a grade só se atualiza na
+      volta de foco e depois de cada ação do balcão — o relógio da sessão anda por conta própria.
 
 ---
 
@@ -189,7 +192,8 @@ Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para des
 
 1. **Paginação reutilizável** — afeta todas as listagens.
 2. **Download do arquivo de impressão** — sem ele a fila é só leitura.
-3. **Eventos de negócio no WebSocket** — troca polling por tempo real.
+3. **Eventos de negócio no WebSocket** — a única forma de o painel ver o que acontece fora dele sem
+   voltar a repetir requisições.
 4. **Relatórios**.
 
 > **Resolvidos:** _liberar computador manualmente_ saiu desta lista — `POST /lawyers/release-computer` já

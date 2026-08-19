@@ -81,7 +81,9 @@ src/
 │   ├── rooms/                     # get-all.ts (GET /rooms/get-all)
 │   ├── computers/                 # entrada e saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
-├── hooks/use-mobile.ts            # breakpoint de 768px, usado pela sidebar
+├── hooks/
+│   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
+│   └── use-elapsed-minutes.ts     # minutos decorridos desde uma resposta, para o saldo andar na tela
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── index.ts                   # helpers sem dependência (getInitials)
@@ -243,7 +245,8 @@ Confirmar antes de planejar as telas correspondentes.
 - **Baixar arquivo da fila de impressão** — a listagem existe, o download não.
 - **Relatórios** — nada implementado.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
-  `session_started`, e o canal não é autenticado. Um painel "ao vivo" hoje só consegue polling.
+  `session_started`, e o canal não é autenticado. Sem eles o painel não tem como saber o que acontece fora
+  dele: revalida na volta de foco e depois de cada ação, e conta o tempo da sessão no próprio navegador.
 
 ---
 
@@ -461,9 +464,29 @@ A sala escolhida vive na URL (`?sala=<roomId>`), então a tela recarrega e se co
 contexto. Um valor inválido, ou de sala fora do escopo, cai na primeira da lista. O custo é a fronteira de
 `Suspense` em `page.tsx` — sem ela o build falha ao pré-renderizar por causa do `useSearchParams`.
 
-O saldo (`usedMinutes`, `remainingMinutes`) é calculado no **servidor** a cada requisição, então a tela
-revalida as liberações a cada 30s. Entre um refetch e outro o relógio está parado — para uma cota medida em
-dezenas de minutos, é ruído. Cai fora no dia em que a `api-fr` emitir eventos de negócio no WebSocket.
+O saldo (`usedMinutes`, `remainingMinutes`) é calculado no **servidor** a cada requisição: vale para o
+instante da resposta e envelhece no segundo seguinte. A primeira versão resolvia isso com polling de 30s —
+repetindo uma rota que devolve o **histórico inteiro** da sala só para o número mexer.
+
+Hoje o painel conta o tempo por conta própria. `useElapsedMinutes` (`src/hooks/`) devolve os minutos
+decorridos desde o `dataUpdatedAt` da consulta, e `buildComputerViews` os desconta do saldo de cada sessão.
+O relógio anda com a aba parada, sem requisição alguma, e cada revalidação reancora o número no valor do
+servidor. O cliente **só subtrai tempo**: cota, bloqueio e encerramento continuam sendo decisão da API.
+
+Duas guardas fazem parte do desenho:
+
+- **Piso em zero.** Relógio da estação atrasado em relação ao do servidor daria decorrido negativo, e o
+  saldo *cresceria* na tela — o pior erro possível para este número.
+- **Primeira contagem no `useEffect`.** Ler o relógio durante o render gravaria um instante no HTML do
+  servidor e outro no do cliente, e o React acusa erro de hidratação.
+
+O saldo zerado na tela já sinaliza cota esgotada, antes mesmo da confirmação: a `api-fr` encerra a sessão
+sozinha quando o `expiresAt` chega, e o refetch seguinte só confirma o que o card mostrou.
+
+O que se perde sem o polling é a mudança feita **fora** do painel enquanto a aba está em foco — um advogado
+que se libera sozinho na máquina aparece na volta de foco ou depois da próxima ação, não em até 30s. Falha
+para o lado seguro: a API recusa liberar máquina ocupada e encerrar sessão inexistente, e o erro chega em
+toast. Cai fora no dia em que a `api-fr` emitir eventos de negócio no WebSocket.
 
 > ⚠️ **Datas do card levam `timeZone: 'America/Fortaleza'` fixo.** O card é client component, mas o Next
 > também o renderiza no servidor — e servidor em UTC formataria hora diferente da do navegador, o que o
@@ -471,8 +494,9 @@ dezenas de minutos, é ruído. Cai fora no dia em que a `api-fr` emitir eventos 
 
 Detalhes de interface que valem para as próximas telas:
 
-- **Tempo é relógio, não número**: `01:12` em vez de "72 minutos" — no balcão se lê de relance. A barra ao
-  lado existe para a leitura ainda mais rápida: o número diz quanto falta, a barra diz se é muito ou pouco.
+- **Tempo é relógio, não número**: `01h:12min` em vez de "72 minutos" — no balcão se lê de relance. As
+  unidades ficam no número porque `01:12` sozinho é lido como hora do dia. A barra ao lado existe para a
+  leitura ainda mais rápida: o número diz quanto falta, a barra diz se é muito ou pouco.
 - **Tooltip em botão desabilitado precisa de `span` envolvente.** Botão desabilitado não dispara evento de
   ponteiro; sem o wrapper, a explicação de por que ele está travado nunca apareceria.
 - **`uppercase` é marcador de rótulo**, não de conteúdo. Nome de sala e de máquina vão em caixa normal —

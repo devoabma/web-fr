@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys } from '@/constants/query-keys'
+import { useElapsedMinutes } from '@/hooks/use-elapsed-minutes'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import { putIntoMaintenance } from '@/server/computers/put-into-maintenance'
 import { takeOutOfMaintenance } from '@/server/computers/take-out-of-maintenance'
@@ -23,8 +24,10 @@ import { RoomEmployees } from './room-employees'
 import { RoomSelect } from './room-select'
 import { StatusSummary } from './status-summary'
 
-/** O relógio de cada sessão é calculado no servidor: sem revalidar, o saldo na tela congela. */
-const RELEASES_REFETCH_INTERVAL = 30_000
+const LIVE_QUERY_OPTIONS = {
+  staleTime: 0,
+  refetchOnWindowFocus: true,
+} as const
 
 export function ReleasesBoard() {
   const queryClient = useQueryClient()
@@ -36,9 +39,14 @@ export function ReleasesBoard() {
   const [computerToRelease, setComputerToRelease] = useState<ComputerView | null>(null)
   const [computerToClose, setComputerToClose] = useState<ComputerView | null>(null)
 
-  const { data: roomsData, isPending, isError } = useQuery({
+  const {
+    data: roomsData,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: queryKeys.getRooms(),
     queryFn: getAllRooms,
+    ...LIVE_QUERY_OPTIONS,
   })
 
   // Sala inativa fica de fora: ninguém deve liberar máquina de uma sala fora de operação.
@@ -49,13 +57,22 @@ export function ReleasesBoard() {
   const selectedRoom = rooms.find(room => room.id === searchParams.get('sala')) ?? rooms.at(0)
   const selectedRoomId = selectedRoom?.id
 
-  const { data: releasesData, isPending: isPendingReleases, isError: isErrorReleases } = useQuery({
+  const {
+    data: releasesData,
+    dataUpdatedAt: releasesUpdatedAt,
+    isPending: isPendingReleases,
+    isError: isErrorReleases,
+  } = useQuery({
     queryKey: queryKeys.getReleases(selectedRoomId),
     // Só roda com `enabled`, então o id nunca chega indefinido aqui.
     queryFn: () => getAllReleases(selectedRoomId as string),
     enabled: !!selectedRoomId,
-    refetchInterval: RELEASES_REFETCH_INTERVAL,
+    ...LIVE_QUERY_OPTIONS,
   })
+
+  // O saldo de cada sessão é calculado no servidor: parado na tela, ele mente até o próximo refetch.
+  // Contar o tempo aqui faz o relógio andar sem uma chamada por minuto na api-fr.
+  const elapsedMinutes = useElapsedMinutes(releasesUpdatedAt)
 
   const { mutateAsync: releaseComputerFn, isPending: isReleasing } = useMutation({
     mutationFn: releaseComputer,
@@ -238,7 +255,7 @@ export function ReleasesBoard() {
     )
   }
 
-  const computers = buildComputerViews(selectedRoom.computers, releasesData?.releases ?? [])
+  const computers = buildComputerViews(selectedRoom.computers, releasesData?.releases ?? [], elapsedMinutes)
   const totalComputers = computers.length
 
   return (
@@ -300,8 +317,8 @@ export function ReleasesBoard() {
           <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 
           <p className="text-muted-foreground text-sm leading-relaxed">
-            As sessões em andamento desta sala não puderam ser carregadas. As máquinas ocupadas continuam sinalizadas, mas sem
-            o nome do advogado, o tempo restante e a ação de encerrar. Atualize a página em alguns instantes.
+            As sessões em andamento desta sala não puderam ser carregadas. As máquinas ocupadas continuam sinalizadas, mas sem o
+            nome do advogado, o tempo restante e a ação de encerrar. Atualize a página em alguns instantes.
           </p>
         </div>
       )}

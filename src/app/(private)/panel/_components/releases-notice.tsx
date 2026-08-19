@@ -16,8 +16,8 @@ export function ReleasesNotice() {
           O acesso é permitido{' '}
           <strong className="font-semibold text-foreground">
             somente aos advogados inscritos regularmente no quadro da sua Seccional.
-          </strong>
-          . O tempo é definido por sala e <strong className="font-semibold text-foreground">compartilhado por dia</strong> — o
+          </strong>{' '}
+          O tempo é definido por sala e <strong className="font-semibold text-foreground">compartilhado por dia</strong> — o
           advogado retoma o saldo em qualquer máquina, até a cota acabar.
         </p>
       </div>

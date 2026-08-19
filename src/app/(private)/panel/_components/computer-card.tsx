@@ -13,7 +13,7 @@ function formatMinutesAsClock(totalMinutes: number) {
   const hours = Math.floor(safeMinutes / 60)
   const minutes = safeMinutes % 60
 
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  return `${String(hours).padStart(2, '0')}h:${String(minutes).padStart(2, '0')}min`
 }
 
 function formatDateTime(isoDate: string) {
@@ -113,7 +113,7 @@ export function ComputerCard({
         >
           <span
             className={cn(
-              'size-1.5 min-w-1.5 rounded-full',
+              'size-1.5 min-w-1.5 animate-pulse rounded-full',
               isAvailable && 'bg-green-600',
               isInUse && 'bg-rose-700',
               isInMaintenance && 'bg-slate-500'
