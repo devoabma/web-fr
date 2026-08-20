@@ -62,14 +62,16 @@
 - [ ] Esqueci minha senha (`POST /employees/password-recovery`) — rota `/auth/forgot-password` já linkada
       pela tela de login, mas inexistente
 - [ ] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`)
-- [ ] Trocar senha do usuário logado (`PATCH /employees/change-password`)
-- [ ] Tela de configurações de conta — o item já existe no menu do usuário, mas está **inerte**: não há
-      destino para onde levar
+- [x] Trocar senha do usuário logado (`PATCH /employees/change-password`) — diálogo em `/profile` com senha
+      atual, nova e confirmação, "mostrar senhas" único para os três campos e tratamento de `429`
+- [x] Tela de configurações de conta em `/profile` — identificação, CPF mascarado e e-mail em leitura, com o
+      item do menu do usuário virando âncora (`Link`) em vez de `router.push`
 - [x] Logout (`POST /employees/session/logout`) pelo menu do usuário — a API apaga o cookie `httpOnly`, o
       painel limpa o cache do React Query e devolve ao login. Falha de rede avisa por toast e **não** navega,
       porque a sessão continua de pé
 - [ ] Denylist de token na `api-fr` — o logout hoje remove o cookie, mas um JWT já copiado segue aceito até
-      expirar (1 dia)
+      expirar (1 dia). Vale também para a troca de senha: a API só regrava o hash, então **quem já estava
+      logado em outra máquina continua dentro** mesmo depois da senha mudar
 - [ ] "Manter-me conectado" é decorativo: a API aceita só `{ cpf, password }` e fixa o cookie em 1 dia.
       Decidir entre remover o campo ou pedir suporte na `api-fr`
 - [ ] Revisar `Domain`/`SameSite` do cookie quando painel e API forem para domínios distintos em produção

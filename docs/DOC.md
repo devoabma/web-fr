@@ -68,6 +68,7 @@ src/
 │   └── (private)/                 # painel autenticado
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
+│       ├── profile/               # /profile — conta do funcionário e troca de senha (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -77,7 +78,7 @@ src/
 │   └── ui/                        # primitivas shadcn/base-ui
 ├── constants/query-keys.ts        # chaves do React Query, centralizadas
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
-│   ├── employees/                 # perfil, login e logout
+│   ├── employees/                 # perfil, login, logout e troca de senha
 │   ├── rooms/                     # get-all.ts (GET /rooms/get-all)
 │   ├── computers/                 # estações conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
@@ -260,6 +261,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/` | — | landing pública, pronta |
 | `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
 | `/panel` | `(private)` | sala e operação das máquinas: seleção (`?sala=`), colaboradores, cota, grade e as quatro ações. **Protegida pelo `proxy.ts`** |
+| `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, e troca de senha. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
@@ -554,6 +556,54 @@ Detalhes de interface que valem para as próximas telas:
   dia inválido para o mês seguinte em silêncio. O schema monta o `Date` e compara os campos de volta.
 - **`reset()` ao abrir o diálogo de liberação**: sem isso o CPF do advogado anterior reaparece na máquina
   seguinte, e o balconista libera a pessoa errada sem perceber.
+
+---
+
+### Conta do funcionário (`/profile`)
+
+Primeira tela de conta do painel, destino do item que nascia inerte no menu do usuário. Três cartões numa
+coluna de `max-w-3xl`: identificação (avatar, nome e papel), dados da conta (CPF mascarado e e-mail) e
+segurança (o botão que abre a troca de senha).
+
+**Só leitura, e a tela diz isso.** Nome, CPF, e-mail e foto são cadastro de administrador
+(`PATCH /employees/update/:id`, `PATCH /employees/update-image`). O cartão de dados carrega a frase "para
+corrigir qualquer um destes dados, procure um administrador" — sem ela, o funcionário procuraria um lápis
+que não existe.
+
+**Mesma consulta da barra superior.** `queryKeys.getProfile()` com `staleTime` infinito, exatamente como o
+bloco de usuário do topo. Chave própria significaria duas requisições e dois retratos do mesmo funcionário
+podendo divergir na mesma aba — como se chega aqui pelo menu do usuário, o dado já está em cache.
+
+**Troca de senha** (`PATCH /employees/change-password`) num diálogo controlado:
+
+- Os nomes divergem de propósito: o formulário usa `confirmPassword`, a API espera `confirmNewPassword`. A
+  tradução acontece num único ponto, na chamada da mutação.
+- **O diálogo resiste ao fechamento durante o envio** (`if (isSubmitting) return` no `onOpenChange`). Fechar
+  no meio da chamada limparia o formulário com a requisição de pé: o toast de erro chegaria depois, sem os
+  dados na tela para corrigir.
+- **`closeDialog` centraliza os três efeitos** — fechar, `reset()` e desligar "mostrar senhas". Se algum
+  caminho de saída esquecesse o último, a senha visível vazaria para a próxima abertura.
+- **No erro, só a senha atual é descartada** (`resetField` + `setFocus`). É o campo que costuma estar
+  errado; limpar os três obrigaria a redigitar a nova senha duas vezes por um dígito trocado no primeiro.
+- Validação local repete o `min(8)` e a igualdade da confirmação, e acrescenta `newPassword !==
+  currentPassword` — a API recusa de qualquer jeito, e o `400` seria puro atrito. Os dois `refine` levam
+  `path` explícito, senão o erro cai na raiz do objeto e o `FieldError` de cada campo fica mudo.
+- `autoComplete`: `current-password` no primeiro campo, `new-password` nos outros dois. Errar isso faz o
+  gerenciador de senhas preencher a senha antiga nos três.
+- Um único "Mostrar senhas" para os três campos: quem liga a visibilidade quer conferir se a nova bate com a
+  confirmação.
+
+> ⚠️ **Trocar a senha não expulsa ninguém.** A `api-fr` só regrava o `passwordHash` — o JWT emitido antes
+> continua aceito até expirar (1 dia), aqui e em qualquer outra máquina. Trocar a senha por desconfiança
+> **não** encerra a sessão de quem já estava dentro. Depende da mesma denylist pendente do logout.
+
+> A API dispara um e-mail de confirmação (Resend) depois da troca. Fora de produção o destinatário é fixo no
+> código do backend, não o e-mail do funcionário — comportamento da `api-fr`, apenas anotado para não
+> assustar em desenvolvimento.
+
+**O item do menu virou âncora**: `DropdownMenuItem` com `render={<Link href="/profile" />}`, não
+`router.push` no clique. Navegação programática descartaria abrir em nova aba, o prefetch do `next/link` e o
+endereço na barra de status.
 
 ---
 

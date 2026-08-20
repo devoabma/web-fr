@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LoaderCircleIcon, LogOutIcon, SettingsIcon } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -94,7 +95,8 @@ export function PanelUser() {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem className="cursor-pointer">
+          {/* Âncora de verdade (e não `router.push`): mantém abrir em nova aba, prefetch e o alvo visível na status bar. */}
+          <DropdownMenuItem className="cursor-pointer" render={<Link href="/profile" />}>
             <SettingsIcon />
             Configurações de Conta
           </DropdownMenuItem>
