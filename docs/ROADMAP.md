@@ -66,6 +66,9 @@
       atual, nova e confirmação, "mostrar senhas" único para os três campos e tratamento de `429`
 - [x] Tela de configurações de conta em `/profile` — identificação, CPF mascarado e e-mail em leitura, com o
       item do menu do usuário virando âncora (`Link`) em vez de `router.push`
+- [x] Trocar a própria foto de perfil (`PATCH /employees/update-image`, multipart, máx. 5MB) — o avatar da
+      tela de conta é o gatilho, com pré-visualização e validação local antes do envio. A resposta traz a
+      `imageUrl` nova, escrita direto no cache: a tela e o menu do usuário trocam a foto sem nova consulta
 - [x] Logout (`POST /employees/session/logout`) pelo menu do usuário — a API apaga o cookie `httpOnly`, o
       painel limpa o cache do React Query e devolve ao login. Falha de rede avisa por toast e **não** navega,
       porque a sessão continua de pé
@@ -153,7 +156,8 @@
 - [ ] Editar (`PATCH /employees/update/:id`)
 - [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`)
 - [ ] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`)
-- [ ] Trocar foto de perfil (`PATCH /employees/update-image`, multipart, máx. 5MB)
+- ❌ Trocar a foto de **outro** funcionário — não existe na API: `PATCH /employees/update-image` resolve o
+      funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
 ### Salas
 - [ ] Listar (`GET /rooms/get-all`)

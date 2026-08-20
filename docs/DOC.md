@@ -68,7 +68,7 @@ src/
 │   └── (private)/                 # painel autenticado
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
-│       ├── profile/               # /profile — conta do funcionário e troca de senha (page + _components)
+│       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -261,7 +261,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/` | — | landing pública, pronta |
 | `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
 | `/panel` | `(private)` | sala e operação das máquinas: seleção (`?sala=`), colaboradores, cota, grade e as quatro ações. **Protegida pelo `proxy.ts`** |
-| `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, e troca de senha. Alcançada pelo menu do usuário, **sem item na sidebar** |
+| `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
@@ -565,10 +565,11 @@ Primeira tela de conta do painel, destino do item que nascia inerte no menu do u
 coluna de `max-w-3xl`: identificação (avatar, nome e papel), dados da conta (CPF mascarado e e-mail) e
 segurança (o botão que abre a troca de senha).
 
-**Só leitura, e a tela diz isso.** Nome, CPF, e-mail e foto são cadastro de administrador
-(`PATCH /employees/update/:id`, `PATCH /employees/update-image`). O cartão de dados carrega a frase "para
-corrigir qualquer um destes dados, procure um administrador" — sem ela, o funcionário procuraria um lápis
-que não existe.
+**Só leitura, e a tela diz isso — exceto a foto.** Nome, CPF e e-mail são cadastro de administrador
+(`PATCH /employees/update/:id`). O cartão de dados carrega a frase "para corrigir qualquer um destes dados,
+procure um administrador" — sem ela, o funcionário procuraria um lápis que não existe. A foto é a exceção e
+fica fora daquele cartão: `PATCH /employees/update-image` resolve o funcionário pelo próprio token, então
+cada um troca a sua sem passar por ninguém.
 
 **Mesma consulta da barra superior.** `queryKeys.getProfile()` com `staleTime` infinito, exatamente como o
 bloco de usuário do topo. Chave própria significaria duas requisições e dois retratos do mesmo funcionário
@@ -600,6 +601,41 @@ podendo divergir na mesma aba — como se chega aqui pelo menu do usuário, o da
 > A API dispara um e-mail de confirmação (Resend) depois da troca. Fora de produção o destinatário é fixo no
 > código do backend, não o e-mail do funcionário — comportamento da `api-fr`, apenas anotado para não
 > assustar em desenvolvimento.
+
+**Troca da foto de perfil** (`PATCH /employees/update-image`), com o próprio avatar como gatilho:
+
+- **O gatilho é a foto, não um botão ao lado.** É onde a mão vai primeiro. `<button>` de verdade com
+  `aria-label`, `Tooltip` de "Atualizar foto de perfil" e véu com ícone de câmera em `group-hover` **e**
+  `group-focus-visible` — sem o segundo, quem navega por teclado não veria indicação nenhuma.
+- **`Dialog` controlado, sem `DialogTrigger`.** `Tooltip` e `Dialog` disputariam o mesmo elemento por
+  `render` aninhado. O Base UI devolve o foco ao elemento que o tinha antes da abertura, então o retorno de
+  foco continua correto.
+- **Sem `react-hook-form` aqui.** Um campo só, e ele é `<input type="file">`. O motivo duro é de tipagem:
+  `z.instanceof(File)` no escopo do módulo quebra o SSR do componente cliente, porque `File` não existe no
+  Node. O schema usa `z.custom<File>`, cuja checagem só roda no `parse`, já no navegador.
+- **Validação local espelha a API**: PNG, JPG ou WEBP, arquivo não vazio, até 5 MB (o teto do
+  `@fastify/multipart`). O `accept` do input é só uma sugestão do sistema operacional — o usuário troca o
+  filtro para "todos os arquivos" e escolhe um PDF sem esforço. Arquivo recusado **não** fica selecionado.
+- **A pré-visualização é um `objectURL` revogado no `cleanup`.** Sem a revogação, cada arquivo escolhido
+  deixaria um blob preso na memória pelo resto da sessão — no balcão a aba fica dias aberta.
+- **O `value` do input é zerado ao limpar a seleção.** Sem isso, escolher **o mesmo** arquivo de novo não
+  dispara `change`, e a tela fica sem pré-visualização, parecendo travada.
+- **O sucesso escreve no cache, não invalida.** A API devolve a `imageUrl`, então `setQueryData` evita um
+  `GET /employees/profile` para descobrir o que já se sabe. E fecha uma janela real: com
+  `invalidateQueries`, entre a resposta e o fim da nova consulta o botão reabilitaria com o arquivo ainda
+  selecionado — dois cliques seriam dois uploads e dois arquivos no bucket. O `updater` é imutável de
+  propósito; mutar o objeto anterior devolveria a mesma referência e a foto não trocaria na tela.
+- **Nenhum `Content-Type` manual na chamada.** O axios só monta `multipart/form-data; boundary=...` quando
+  o cabeçalho não foi informado. Declarando-o na mão, o `boundary` some e o Fastify não separa as partes.
+- Mesma regra de fechamento da troca de senha: `Esc`, clique fora e "Cancelar" ficam sem efeito enquanto o
+  envio está de pé.
+
+> Cada envio grava um nome novo no bucket (`crypto.randomUUID()` no `profiles` do Supabase) e a `api-fr`
+> apaga a imagem anterior depois de gravar a nova. Como a URL sempre muda, não há risco de o navegador
+> servir a foto antiga do cache. Falha na remoção deixa arquivo órfão, mas não desfaz a troca.
+
+> Não há recorte no cliente: o avatar é quadrado e usa `object-cover`, então foto retangular perde as
+> bordas. A pré-visualização mostra exatamente o enquadramento final, antes do envio.
 
 **O item do menu virou âncora**: `DropdownMenuItem` com `render={<Link href="/profile" />}`, não
 `router.push` no clique. Navegação programática descartaria abrir em nova aba, o prefetch do `next/link` e o

@@ -2,15 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { IdCardIcon, MailIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys } from '@/constants/query-keys'
 import type { Role } from '@/lib/auth/session'
 import { getProfile } from '@/server/employees/get-profile'
-import { getInitials } from '@/utils'
 import { maskCpf } from '@/utils/masks/cpf'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { ProfileRow } from './profile-row'
+import { UpdateAvatarDialog } from './update-avatar-dialog'
 
 /** Mesmo rótulo do menu do usuário: a api-fr devolve o papel como enum, a tela mostra em português. */
 const ROLE_LABELS: Record<Role, string> = {
@@ -54,11 +53,7 @@ export function ProfileDetails() {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-xs">
-        <Avatar className="size-14 rounded-xl after:rounded-xl">
-          {imageUrl && <AvatarImage src={imageUrl} alt={name} className="rounded-xl" />}
-
-          <AvatarFallback className="rounded-xl text-base">{getInitials(name)}</AvatarFallback>
-        </Avatar>
+        <UpdateAvatarDialog name={name} imageUrl={imageUrl} />
 
         <div className="min-w-0">
           <h2 className="truncate font-semibold text-lg text-primary leading-tight">{name}</h2>

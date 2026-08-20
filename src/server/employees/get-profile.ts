@@ -10,7 +10,7 @@ export interface EmployeeProfile {
   role: Role
 }
 
-interface GetProfileResponse {
+export interface GetProfileResponse {
   employee: EmployeeProfile
 }
 
