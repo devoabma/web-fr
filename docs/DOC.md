@@ -79,7 +79,7 @@ src/
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login e logout
 │   ├── rooms/                     # get-all.ts (GET /rooms/get-all)
-│   ├── computers/                 # entrada e saída de manutenção
+│   ├── computers/                 # estações conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
@@ -247,6 +247,9 @@ Confirmar antes de planejar as telas correspondentes.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
   `session_started`, e o canal não é autenticado. Sem eles o painel não tem como saber o que acontece fora
   dele: revalida na volta de foco e depois de cada ação, e conta o tempo da sessão no próprio navegador.
+  O que existe desde **2026-08-20** é uma janela HTTP para o **registro de conexões** desse canal
+  (`GET /computers/online/:roomId`, api-fr `8089c01`) — o painel pergunta quem está ligado, de 20 em 20
+  segundos. É leitura de presença, não evento de negócio: o bloqueio segue de pé.
 
 ---
 
@@ -426,6 +429,10 @@ sessão que não existe. E "em uso" deriva de `session || inUse`, não só da se
 liberações falhar, a grade ainda marca as ocupadas pelo `inUse` da sala, perde os detalhes e **não** passa
 a oferecer liberação por cima de quem está trabalhando. Uma faixa âmbar explica a degradação.
 
+A conexão da estação é **ortogonal** aos três estados: não vira um quarto valor de `status`, e sim o campo
+`isOnline`. Ela muda a leitura do card disponível (âmbar, rotulado "Offline", sem liberação) e acrescenta
+uma ressalva ao card em uso, mas máquina em manutenção continua sendo manutenção, ligada ou não.
+
 #### As quatro ações do balcão
 
 | Ação | Rota | Onde aparece |
@@ -439,9 +446,48 @@ a oferecer liberação por cima de quem está trabalhando. Uma faixa âmbar expl
 > formulário digita `dd/mm/aaaa`. Errar isso faz *toda* liberação falhar com "informações não conferem" —
 > a mensagem menos útil possível para depurar.
 
-> ⚠️ **`notified: false` é aviso, não erro.** A sessão foi gravada, mas o Desktop daquela máquina está
-> offline e não recebeu o evento. Liberando do balcão ninguém vê a tela do computador: sem o alerta, o
-> advogado caminha até uma máquina que continua travada.
+> ⚠️ **`notified: false` desfaz a liberação.** A sessão foi gravada, mas o Desktop daquela máquina não
+> estava no WebSocket e não recebeu o evento — a tela nunca vai destravar. Avisar não bastava: a `api-fr`
+> recusa duas sessões simultâneas para o mesmo advogado, então a sessão fantasma o prendia a uma máquina
+> que não abre até alguém encerrá-la pelo card. O painel encerra na hora, e isso não custa cota (o consumo
+> é contado em minutos inteiros). Se o encerramento também falhar, a mensagem para de descrever o problema
+> e instrui a encerrar pelo card antes de tentar outra máquina.
+
+> ⚠️ **A condição é `expiresAt && !notified`, não só `!notified`.** A rota tem dois caminhos de `200`: a
+> liberação nova (com `expiresAt`) e o encerramento da sessão anterior que estourou o tempo (sem). O
+> segundo também pode vir com `notified: false`, e ali não há sessão nova para desfazer.
+
+#### Quem está ligado
+
+`GET /computers/online/:roomId` lista as estações conectadas ao canal `/ws/computers` — as que conseguem
+receber a ordem de abrir a tela. É a terceira consulta da tela, e o que permite barrar a máquina muda
+**antes** de gravar sessão nela.
+
+> ⚠️ **A rota devolve só as conectadas.** Ausência na lista é o sinal de offline — não há campo de estado
+> para ler. E a leitura é da **conexão do programa**, não do computador: estação ligada com o Desktop
+> fechado conta como offline, que é exatamente o que interessa.
+
+`ComputerView.isOnline` é `boolean | null`, e o terceiro estado não é preciosismo: enquanto a resposta não
+chega, ou se a consulta falha, `null` faz o card se comportar como antes da mudança. `false` por padrão
+travaria a sala inteira num timeout de rede; `true` por padrão mentiria. Uma faixa âmbar explica a
+degradação, porque a grade volta a não distinguir as mudas.
+
+**As duas defesas cobrem janelas diferentes.** O bloqueio na grade pega a máquina que **já estava**
+desligada — o caso comum, e o único que evita o vaivém do advogado. O desfazer pega a que **caiu** entre o
+último refetch e a confirmação. Ficar só com uma das duas deixa um dos dois buracos aberto.
+
+**É a única consulta da tela com polling** (20s). Estação que sobe não avisa o painel, e
+`refetchOnWindowFocus` não dispara para quem nunca sai da aba: sem o intervalo, a máquina recém-ligada
+ficaria com o botão travado indefinidamente. O intervalo do React Query pausa fora de foco, e o teto global
+da `api-fr` é de 300 req/min por IP — três por minuto por funcionário não chega perto.
+
+**Offline impede uma coisa só: receber a ordem de abrir a tela.** Manutenção continua oferecida (é o
+desfecho natural de achar uma máquina muda, e é operação de banco), e encerrar sessão de máquina offline
+também funciona — a sessão morre e a cota volta. O que não acontece é a tela dela limpar, e o card avisa
+isso em vez de esconder o botão.
+
+> ⚠️ **Depende da `api-fr` em `8089c01` ou posterior.** Contra uma API sem essa rota a consulta responde
+> `404`, a tela cai no aviso de degradação e o comportamento volta ao anterior, com o desfazer de pé.
 
 **Manutenção não é oferecida no card em uso** — a API recusa com `400` enquanto houver sessão, e oferecer o
 botão só entregaria um erro no clique. O caminho correto é encerrar a sessão primeiro, que o card já
@@ -521,7 +567,9 @@ Divergências deliberadas em relação ao design original:
   reaproveita o `Header` real em vez do nav próprio do design.
 - Ícones lucide substituem os glifos tipográficos (`⌁ ◷ ⎙ ◳`) dos cards de diferenciais.
 - Os contadores da prévia do painel são derivados dos dados, não literais.
-- Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`.
+- Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`. O
+  `amber-500` entrou depois, e não como quarto estado: é o tom de "funciona, mas há algo a saber" — as
+  faixas de degradação e a estação offline.
 - O símbolo da marca é o componente `BrandMark` (SVG com `currentColor`), não um arquivo de imagem — é o
   que permite usá-lo em branco no login, esmaecido na 404 e como marca d'água na sidebar.
 

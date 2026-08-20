@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys } from '@/constants/query-keys'
 import { useElapsedMinutes } from '@/hooks/use-elapsed-minutes'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
+import { getOnlineComputers } from '@/server/computers/get-online'
 import { putIntoMaintenance } from '@/server/computers/put-into-maintenance'
 import { takeOutOfMaintenance } from '@/server/computers/take-out-of-maintenance'
 import { closeSession } from '@/server/lawyers/close-session'
@@ -28,6 +29,9 @@ const LIVE_QUERY_OPTIONS = {
   staleTime: 0,
   refetchOnWindowFocus: true,
 } as const
+
+/** De quanto em quanto tempo o painel reconfere quais estações estão conectadas ao canal. */
+const ONLINE_REFETCH_INTERVAL_IN_MS = 20_000
 
 export function ReleasesBoard() {
   const queryClient = useQueryClient()
@@ -69,6 +73,24 @@ export function ReleasesBoard() {
     enabled: !!selectedRoomId,
     ...LIVE_QUERY_OPTIONS,
   })
+
+  // Quem está no canal `/ws/computers` e consegue receber a ordem de abrir a tela. Falha aqui não
+  // trava a sala: sem a resposta, `isOnline` fica `null` e o board volta ao comportamento antigo —
+  // libera e desfaz sozinho se a máquina não responder ao aviso.
+  //
+  // É a única das três consultas que precisa de polling: uma estação que acabou de ser ligada não
+  // avisa o painel, e sem o refetch ela ficaria marcada como offline — com o botão travado — até
+  // alguém sair e voltar para a aba. O intervalo pausa fora de foco, então a sala vazia não bate na
+  // api-fr à toa.
+  const { data: onlineData, isError: isErrorOnline } = useQuery({
+    queryKey: queryKeys.getOnlineComputers(selectedRoomId),
+    queryFn: () => getOnlineComputers(selectedRoomId as string),
+    enabled: !!selectedRoomId,
+    refetchInterval: ONLINE_REFETCH_INTERVAL_IN_MS,
+    ...LIVE_QUERY_OPTIONS,
+  })
+
+  const onlineComputerIds = onlineData ? new Set(onlineData.computers.map(computer => computer.id)) : null
 
   // O saldo de cada sessão é calculado no servidor: parado na tela, ele mente até o próximo refetch.
   // Contar o tempo aqui faz o relógio andar sem uma chamada por minuto na api-fr.
@@ -125,7 +147,27 @@ export function ReleasesBoard() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.getRooms() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.getReleases(selectedRoomId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.getOnlineComputers(selectedRoomId) }),
     ])
+  }
+
+  /**
+   * Volta atrás numa liberação que a estação offline não recebeu. Se o encerramento também falhar, a
+   * sessão fica de pé — e como um advogado(a) não pode ter duas sessões ao mesmo tempo, ela precisa ser
+   * encerrada pelo card antes de tentar outra máquina.
+   */
+  async function undoOfflineRelease(sessionId: string, lawyerName: string, computerName: string) {
+    try {
+      await closeSessionFn(sessionId)
+
+      toast.error(`O ${computerName} não respondeu ao aviso.`, {
+        description: 'A estação está desligada ou sem rede, então a liberação foi desfeita. Use outro computador.',
+      })
+    } catch {
+      toast.error(`O ${computerName} não respondeu ao aviso.`, {
+        description: `A sessão de ${lawyerName} ficou aberta e não pôde ser desfeita sozinha. Encerre-a pelo card antes de liberar outra máquina.`,
+      })
+    }
   }
 
   async function handleReleaseComputer(data: ReleaseComputerFormType) {
@@ -140,17 +182,27 @@ export function ReleasesBoard() {
         macCode: computerToRelease.macCode,
       })
 
+      // `notified: false` significa que o Desktop daquela máquina não estava no WebSocket — ela está
+      // desligada, sem rede ou com o programa fechado — e a tela nunca vai destravar. A grade já barra
+      // as estações mudas que conhece, mas a api-fr grava a sessão antes de tentar avisar: quem cai
+      // entre o último refetch e o clique só é descoberto aqui. Desfazer no mesmo instante é o mais
+      // perto de nunca ter liberado — e não custa cota, porque o consumo é contado em minutos inteiros.
+      //
+      // O 200 sem `expiresAt` é o outro caminho da rota — a sessão anterior que estourou o tempo sendo
+      // encerrada — e ali não há nada aberto para desfazer.
+      if (result.expiresAt && !result.notified) {
+        await undoOfflineRelease(result.sessionId, result.lawyerName, computerToRelease.name)
+
+        setComputerToRelease(null)
+
+        await refreshBoard()
+
+        return
+      }
+
       toast.success(`${result.lawyerName} liberado(a) no ${computerToRelease.name}.`, {
         description: `Saldo de ${result.remainingTime} min para o dia.`,
       })
-
-      // Liberando do balcão, quem confirma não vê a tela da máquina. Sem este aviso o advogado
-      // caminha até um computador que continua travado.
-      if (!result.notified) {
-        toast.warning(`O ${computerToRelease.name} não respondeu ao aviso.`, {
-          description: 'A sessão foi gravada, mas a estação está offline e não vai destravar sozinha.',
-        })
-      }
 
       setComputerToRelease(null)
 
@@ -255,7 +307,12 @@ export function ReleasesBoard() {
     )
   }
 
-  const computers = buildComputerViews(selectedRoom.computers, releasesData?.releases ?? [], elapsedMinutes)
+  const computers = buildComputerViews(
+    selectedRoom.computers,
+    releasesData?.releases ?? [],
+    elapsedMinutes,
+    onlineComputerIds
+  )
   const totalComputers = computers.length
 
   return (
@@ -323,10 +380,24 @@ export function ReleasesBoard() {
         </div>
       )}
 
+      {/* Sem saber quem está conectado, a grade não tem como marcar as estações mudas — e o balcão
+          voltaria a descobrir isso só depois de gravar a sessão. Continua funcionando, mas o aviso
+          deixa claro por que uma liberação pode ser desfeita sozinha logo em seguida. */}
+      {isErrorOnline && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 p-3" role="alert">
+          <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Não foi possível verificar quais estações estão ligadas. O balcão continua liberando normalmente, mas se a máquina
+            escolhida estiver offline a liberação será desfeita automaticamente.
+          </p>
+        </div>
+      )}
+
       <ReleaseComputerDialog
         computer={computerToRelease}
         roomName={selectedRoom.name}
-        isPending={isReleasing}
+        isPending={isReleasing || isClosing}
         onClose={() => setComputerToRelease(null)}
         onConfirm={handleReleaseComputer}
       />

@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckIcon, LockOpenIcon, MonitorIcon, PowerIcon, UserRoundIcon, WrenchIcon } from 'lucide-react'
+import { CheckIcon, LockOpenIcon, MonitorIcon, PowerIcon, UnplugIcon, UserRoundIcon, WrenchIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -47,11 +47,20 @@ export function ComputerCard({
   onPutIntoMaintenance,
   onTakeOutOfMaintenance,
 }: ComputerCardProps) {
-  const { name, description, macCode, status, maintenanceSince, session } = computer
+  const { name, description, macCode, status, maintenanceSince, session, isOnline } = computer
 
   const isAvailable = status === 'available'
   const isInUse = status === 'in-use'
   const isInMaintenance = status === 'maintenance'
+
+  // `null` (o painel não conseguiu consultar quem está conectado) não vale como offline: na dúvida o
+  // card se comporta como antes e a liberação segue, com o desfazer automático do board como rede.
+  const isOffline = isOnline === false
+
+  // Máquina livre mas muda não é máquina livre: quem libera nela grava sessão numa tela que não abre.
+  // Ela ganha o tom de aviso em vez do verde para não ser lida de relance como pronta para uso.
+  const isFree = isAvailable && !isOffline
+  const isAvailableOffline = isAvailable && isOffline
 
   // Sala sem cota configurada zeraria o divisor e a barra viraria `NaN%`, que o CSS descarta em silêncio.
   const remainingPercentage = session && standardTime > 0 ? Math.min(100, (session.remainingMinutes / standardTime) * 100) : 0
@@ -60,7 +69,8 @@ export function ComputerCard({
     <article
       className={cn(
         'relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs transition-shadow hover:shadow-md',
-        isAvailable && 'border-green-600/25',
+        isFree && 'border-green-600/25',
+        isAvailableOffline && 'border-amber-500/30',
         isInUse && 'border-rose-700/30',
         isInMaintenance && 'border-slate-500/30'
       )}
@@ -69,7 +79,8 @@ export function ComputerCard({
         aria-hidden
         className={cn(
           'absolute inset-y-0 left-0 w-1',
-          isAvailable && 'bg-green-600',
+          isFree && 'bg-green-600',
+          isAvailableOffline && 'bg-amber-500',
           isInUse && 'bg-rose-700',
           isInMaintenance && 'bg-slate-500'
         )}
@@ -83,7 +94,8 @@ export function ComputerCard({
                 <span
                   className={cn(
                     'flex size-9 shrink-0 items-center justify-center rounded-lg border',
-                    isAvailable && 'border-green-600/25 bg-green-600/10 text-green-600',
+                    isFree && 'border-green-600/25 bg-green-600/10 text-green-600',
+                    isAvailableOffline && 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400',
                     isInUse && 'border-rose-700/25 bg-rose-700/10 text-rose-700',
                     isInMaintenance && 'border-slate-500/25 bg-slate-500/10 text-slate-500'
                   )}
@@ -106,7 +118,8 @@ export function ComputerCard({
         <span
           className={cn(
             'flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium text-[11px]',
-            isAvailable && 'border-green-600/25 bg-green-600/10 text-green-600',
+            isFree && 'border-green-600/25 bg-green-600/10 text-green-600',
+            isAvailableOffline && 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400',
             isInUse && 'border-rose-700/25 bg-rose-700/10 text-rose-700',
             isInMaintenance && 'border-slate-500/25 bg-slate-500/10 text-slate-500'
           )}
@@ -114,23 +127,38 @@ export function ComputerCard({
           <span
             className={cn(
               'size-1.5 min-w-1.5 animate-pulse rounded-full',
-              isAvailable && 'bg-green-600',
+              isFree && 'bg-green-600',
+              isAvailableOffline && 'bg-amber-500',
               isInUse && 'bg-rose-700',
               isInMaintenance && 'bg-slate-500'
             )}
           />
-          {isAvailable && 'Disponível'}
+          {isFree && 'Disponível'}
+          {isAvailableOffline && 'Offline'}
           {isInUse && 'Em uso'}
           {isInMaintenance && 'Manutenção'}
         </span>
       </header>
 
       <div className="flex flex-1 flex-col gap-2.5 px-4 pb-4">
-        {isAvailable && (
+        {isFree && (
           <p className="flex items-center gap-2 text-muted-foreground text-sm">
             <CheckIcon className="size-4 shrink-0 text-green-600" />
             Livre · cota de {standardTime} min no dia
           </p>
+        )}
+
+        {isAvailableOffline && (
+          <>
+            <p className="flex items-center gap-2 font-medium text-amber-600 text-sm dark:text-amber-400">
+              <UnplugIcon className="size-4 shrink-0" />
+              Estação offline
+            </p>
+
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Desligada, sem rede ou com o programa fechado. Ligue o computador ou use outro.
+            </p>
+          </>
         )}
 
         {isInUse && session && (
@@ -156,6 +184,14 @@ export function ComputerCard({
           </>
         )}
 
+        {/* Encerrar continua valendo — a sessão morre no banco e a máquina volta a livre. O que não
+            acontece é a tela dela limpar sozinha, e quem está no balcão precisa saber disso. */}
+        {isInUse && isOffline && (
+          <p className="text-amber-600 text-xs dark:text-amber-400">
+            Estação offline — o encerramento não vai limpar a tela dela.
+          </p>
+        )}
+
         {/* Ocupada sem sessão aberta que responda por ela. Pode ser o Desktop que caiu sem encerrar,
             ou as liberações da sala que não carregaram — o board avisa qual dos dois. Encerrar exige um
             `sessionId`, então em nenhum dos casos há ação a oferecer aqui. */}
@@ -174,9 +210,12 @@ export function ComputerCard({
       <footer className="mt-auto flex items-center gap-2 border-t bg-muted/40 p-3">
         {isAvailable && (
           <>
-            <Button className="flex-1" disabled={isMaintenancePending} onClick={() => onRelease(computer)}>
+            {/* Estação offline não libera: a sessão seria gravada e a tela continuaria trancada. O
+                botão de manutenção fica de pé, porque tirar de operação a máquina muda é justamente o
+                que o balcão costuma querer fazer em seguida. */}
+            <Button className="flex-1" disabled={isMaintenancePending || isOffline} onClick={() => onRelease(computer)}>
               <LockOpenIcon data-icon="inline-start" />
-              Liberar
+              {isOffline ? 'Offline' : 'Liberar'}
             </Button>
 
             <Tooltip>

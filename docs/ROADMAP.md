@@ -125,7 +125,14 @@
 - [x] Liberar computador manualmente (`POST /lawyers/release-computer`) — a rota **existe e é pública**,
       recebe `macCode` e serve o painel sem alteração; a marcação anterior de bloqueio estava errada.
       `birth` vai em `DDMMYYYY`, sem barras
-- [x] Aviso quando `notified` volta falso: a sessão foi gravada mas a estação está offline e não destrava
+- [x] Estações desconectadas marcadas na grade, antes do clique (`GET /computers/online/:roomId`, que
+      devolve **só as conectadas**) — cartão âmbar rotulado "Offline", liberação bloqueada, manutenção e
+      encerramento preservados, e as livres e mudas fora da contagem de disponíveis. É a única consulta da
+      tela com polling (20s), porque estação que sobe não avisa o painel
+- [x] Liberação desfeita quando `notified` volta falso: a sessão recém-criada é encerrada na hora, em vez
+      de ficar de pé travando o advogado numa máquina que não abre (a API recusa duas sessões simultâneas).
+      Cobre a estação que cai entre o refetch e a confirmação; falhando o desfazer, a mensagem instrui a
+      encerrar pelo cartão
 - [x] Contador de tempo restante por sessão — `hh:mm` e barra de saldo, lidos de
       `GET /lawyers/get-all-releases/:roomId`, apresentados como `01h:12min`
 - [x] Degradação honesta quando as sessões não carregam: a ocupação da sala é preservada e uma faixa âmbar

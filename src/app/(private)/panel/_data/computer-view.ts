@@ -10,6 +10,8 @@ export type ComputerView = {
   macCode: string
   status: ComputerStatus
   maintenanceSince: string | null
+  /** Está no canal `/ws/computers` e recebe a ordem de abrir a tela. `null` = o painel não conseguiu perguntar. */
+  isOnline: boolean | null
   /** Sessão em curso. `null` mesmo em `in-use` quando a máquina está ocupada sem sessão correspondente. */
   session: {
     id: string
@@ -43,8 +45,16 @@ function buildSessionView(release: ReleaseProps, elapsedMinutes: number): NonNul
  *
  * `elapsedMinutes` é quanto tempo passou desde que essas liberações chegaram do servidor. O saldo vem
  * calculado lá e envelhece no instante seguinte; descontar aqui faz o relógio andar sozinho na tela.
+ *
+ * `onlineComputerIds` vem de `/computers/online/:roomId` e diz quem está no WebSocket. `null` significa
+ * que o painel não conseguiu perguntar — ver `ComputerView.isOnline`.
  */
-export function buildComputerViews(computers: ComputerProps[], releases: ReleaseProps[], elapsedMinutes = 0): ComputerView[] {
+export function buildComputerViews(
+  computers: ComputerProps[],
+  releases: ReleaseProps[],
+  elapsedMinutes = 0,
+  onlineComputerIds: ReadonlySet<string> | null = null
+): ComputerView[] {
   // A rota devolve o histórico inteiro; só a sessão sem `endDate` está em curso. O `reverse()` antes
   // do Map faz a mais recente vencer, porque a lista chega ordenada da mais nova para a mais antiga.
   const openSessions = new Map(
@@ -72,6 +82,7 @@ export function buildComputerViews(computers: ComputerProps[], releases: Release
         macCode: computer.macCode,
         status,
         maintenanceSince: computer.maintenance,
+        isOnline: onlineComputerIds ? onlineComputerIds.has(computer.id) : null,
         session: session ? buildSessionView(session, elapsedMinutes) : null,
       }
     })
