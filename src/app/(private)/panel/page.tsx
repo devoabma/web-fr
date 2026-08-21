@@ -1,7 +1,12 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ReleasesBoard } from './_components/releases-board'
 import { ReleasesNotice } from './_components/releases-notice'
+
+export const metadata: Metadata = {
+  title: 'Painel',
+}
 
 export default function PanelPage() {
   return (

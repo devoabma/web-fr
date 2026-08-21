@@ -4,16 +4,19 @@ import type { ComponentProps } from 'react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { Separator } from '@/components/ui/separator'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarRail } from '@/components/ui/sidebar'
+import type { Role } from '@/lib/auth/session'
 import { NavItems } from './nav-items'
 import { ToggleSidebarButton } from './toggle-sidebar-button'
 
-type PanelSidebarProps = ComponentProps<typeof Sidebar>
+type PanelSidebarProps = ComponentProps<typeof Sidebar> & {
+  role: Role
+}
 
-export function PanelSidebar({ ...props }: PanelSidebarProps) {
+export function PanelSidebar({ role, ...props }: PanelSidebarProps) {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border" {...props}>
       <SidebarContent className="relative px-2 py-3">
-        <NavItems />
+        <NavItems role={role} />
       </SidebarContent>
 
       <Separator className="relative my-2 bg-sidebar-border" />

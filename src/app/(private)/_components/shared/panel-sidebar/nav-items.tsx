@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import type { Role } from '@/lib/auth/session'
 
 type NavItem = {
   label: string
@@ -21,6 +22,7 @@ type NavItem = {
 type NavSection = {
   title: string
   items: NavItem[]
+  adminOnly?: boolean
 }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -34,6 +36,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'Administração',
+    adminOnly: true,
     items: [
       { label: 'Salas', path: '/admin/rooms', icon: DoorOpen },
       { label: 'Computadores', path: '/admin/computers', icon: Computer },
@@ -42,16 +45,22 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-export function NavItems() {
+type NavItemsProps = {
+  role: Role
+}
+
+export function NavItems({ role }: NavItemsProps) {
   const pathname = usePathname()
 
   function isPathActive(pathname: string, path: string) {
     return pathname === path || pathname.startsWith(`${path}/`)
   }
 
+  const sections = NAV_SECTIONS.filter(section => !section.adminOnly || role === 'ADMIN')
+
   return (
     <>
-      {NAV_SECTIONS.map(section => (
+      {sections.map(section => (
         <SidebarGroup key={section.title} className="not-first:mt-4 p-0">
           <SidebarGroupLabel className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">
             {section.title}

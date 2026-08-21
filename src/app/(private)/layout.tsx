@@ -1,15 +1,10 @@
-import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import type { CSSProperties, ReactNode } from 'react'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { readSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { PanelHeader } from './_components/shared/panel-header'
 import { PanelSidebar } from './_components/shared/panel-sidebar'
 
-export const metadata: Metadata = {
-  title: 'Painel',
-}
-
-// Altura do header (h-12). A sidebar é `fixed`, então precisa do mesmo valor para começar logo abaixo dele.
 const HEADER_HEIGHT = '3rem'
 
 export default async function PrivateLayout({ children }: { children: ReactNode }) {
@@ -17,6 +12,12 @@ export default async function PrivateLayout({ children }: { children: ReactNode 
   // sem isto o padrão `defaultOpen` venceria e a sidebar voltaria aberta a cada recarga.
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false'
+
+  // O papel sai do próprio cookie em vez do `getProfile` do client: assim a seção de Administração
+  // já vem certa no HTML, sem piscar na tela de quem não pode vê-la. Sem sessão legível, trata como
+  // MEMBER (menor privilégio) — o proxy e a api-fr continuam sendo a autorização de verdade.
+  const session = readSession(cookieStore.get(SESSION_COOKIE_NAME)?.value)
+  const role = session?.role ?? 'MEMBER'
 
   return (
     <SidebarProvider
@@ -29,7 +30,7 @@ export default async function PrivateLayout({ children }: { children: ReactNode 
       <PanelHeader />
 
       <div className="flex min-h-0 w-full flex-1">
-        <PanelSidebar />
+        <PanelSidebar role={role} />
 
         <SidebarInset className="min-h-0">
           <div className="flex flex-1 flex-col gap-6 overflow-auto p-6">{children}</div>

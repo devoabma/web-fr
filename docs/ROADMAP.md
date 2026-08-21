@@ -98,8 +98,11 @@
 - [x] Menu do usuário no avatar da barra superior: nome, e-mail, papel traduzido e saída do sistema, com
       `aria-label` no gatilho (abaixo de 640px o nome ao lado não é exibido)
 - [ ] Status real do sistema no lugar do badge fixo "All OK" (nada consulta o `/health` da API ainda)
-- [ ] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado) —
-      o `proxy.ts` já barra o acesso, falta esconder o item
+- [x] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado) —
+      `adminOnly` na seção, `role` lido do cookie no layout privado, de modo que o grupo nunca chega ao
+      HTML de quem não pode vê-lo
+- [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
+      herdar "Painel"
 - [ ] Criar as cinco áreas que a sidebar já referencia — hoje `/printers`, `/releases`, `/admin/rooms`,
       `/admin/computers` e `/admin/employees` caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado

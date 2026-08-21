@@ -177,6 +177,11 @@ A regra é **negar por padrão**: só é público o que estiver em `PUBLIC_ROUTE
 protegida sem ninguém precisar lembrar de registrá-la — e rota pública nova **precisa** ser registrada, ou
 cai no login. O casamento é por segmento, para `/administrativo` não casar com `/admin`.
 
+O corte de `/admin/*` por papel acontece em **dois lugares independentes**: aqui, barrando o alcance, e na
+sidebar (`adminOnly` sobre `NAV_SECTIONS`), escondendo o que não se alcança. Um é acesso, o outro é
+apresentação; as duas listas — `ADMIN_ROUTES` e a marcação da seção — hoje não se derivam uma da outra e
+precisam ser mantidas em sincronia na mão.
+
 Token sem `exp` é tratado como **expirado**, não como eterno.
 
 ### Papéis
@@ -264,7 +269,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | — | **linkada pelo login, não existe** |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
-| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` |
+| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -287,14 +292,34 @@ marca do produto mora na barra superior — assim continua visível com a sideba
 e aponta para `/panel`, não para a landing.
 
 A navegação mora em `panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas seções —
-Operação e Administração — e é onde o corte por `role` vai entrar: a seção "Administração" será
-**escondida** de `MEMBER` por um filtro sobre o array, seguindo a mesma regra das ações (esconder, não
-desabilitar).
+Operação e Administração. O corte por `role` é um `filter` sobre esse array: a seção marcada com
+`adminOnly: true` só é renderizada para `ADMIN`, seguindo a mesma regra das ações (**esconder, não
+desabilitar** — item cinza continua anunciando uma área que aquele papel nunca vai alcançar).
+
+O papel vem do **cookie**, lido no layout com `readSession`, e não do `GET /employees/profile`. Do perfil,
+o primeiro HTML sairia sem saber quem é o funcionário e a seção piscaria na tela; do cookie, o markup já
+nasce correto. Sem sessão utilizável o layout assume `MEMBER` — menor privilégio. O `role` desce por prop
+(`PanelSidebar` → `NavItems`), sem contexto, porque são dois níveis e um enum de dois valores.
+
+> ⚠️ **Esconder não é autorizar.** O `readSession` lê o payload do JWT **sem verificar assinatura**; um
+> cookie forjado com `role: 'ADMIN'` faz a seção aparecer — e não leva a lugar nenhum, porque a `api-fr`
+> valida a assinatura e responde `401`. Quem barra o alcance das rotas é o `proxy.ts`, e quem autoriza de
+> verdade é a API.
+>
+> O `adminOnly` é **opt-in**: seção sem a marcação é visível para todos. Seção administrativa nova que
+> esquecer a marcação vaza para o `MEMBER`. E a regra `role === 'ADMIN'` não é exaustiva como um
+> `Record<Role, …>` seria — um terceiro papel cairia no ramo restrito em silêncio.
 
 O recolhimento da sidebar é persistido no cookie `sidebar_state`. A primitiva **grava** esse cookie, mas
 não o lê: quem lê é o layout, com `cookies()` do `next/headers`, repassando o valor como `defaultOpen`. Sem
 essa leitura a persistência seria só escrita e a sidebar voltaria aberta a cada recarga. É por isso que
-`/panel` aparece como `ƒ` (sob demanda) no build, e não como estática.
+`/panel` aparece como `ƒ` (sob demanda) no build, e não como estática — e o mesmo `cookies()` é o que
+resolve o `role` da navegação.
+
+O **título da aba é declarado por rota**, não pelo `(private)/layout.tsx`. `metadata` em layout vale como
+padrão para o grupo inteiro, então um `title: 'Painel'` ali faria toda rota privada nova nascer com o
+título errado até alguém lembrar de sobrescrevê-lo. O template `%s • Sala Livre` fica no layout raiz —
+layout define template, rota define nome.
 
 > ⚠️ **`src/components/ui/sidebar.tsx` não é mais a primitiva original.** Três alterações locais sustentam
 > o arranjo em "T" e um `shadcn add sidebar` desfaz as três:

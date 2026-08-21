@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { ProfileDetails } from './_components/profile-details'
 
 export const metadata: Metadata = {
-  title: 'Minha conta',
+  title: 'Minha Conta',
 }
 
 export default function ProfilePage() {
