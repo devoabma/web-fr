@@ -59,9 +59,12 @@
 - [x] Retorno ao destino pretendido depois do login (`?redirect=`, restrito a caminho interno)
 - [x] Leitura do `role` para corte de acesso a `/admin/*` (ADMIN vs MEMBER)
 - [x] Tratamento do `429` no login, exibindo o tempo de espera (`retryAfterInSeconds`)
-- [ ] Esqueci minha senha (`POST /employees/password-recovery`) — rota `/auth/forgot-password` já linkada
-      pela tela de login, mas inexistente
-- [ ] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`)
+- [x] Esqueci minha senha (`POST /employees/password-recovery`) — rota `/auth/forgot-password` com CPF e
+      e-mail, painel de confirmação no lugar do formulário e reenvio travado por 60s. O e-mail vai **sem**
+      normalizar a caixa: a API grava como foi digitado no cadastro e compara com `findUnique`
+- [x] Redefinir senha com o código de 6 caracteres (`POST /employees/reset-password`) — rota
+      `/auth/reset-password`, com o `?code=` do link do e-mail higienizado antes de preencher o campo, código
+      normalizado para caixa-alta enquanto se digita e foco escolhido pela mensagem da API (código vs. senha)
 - [x] Trocar senha do usuário logado (`PATCH /employees/change-password`) — diálogo em `/profile` com senha
       atual, nova e confirmação, "mostrar senhas" único para os três campos e tratamento de `429`
 - [x] Tela de configurações de conta em `/profile` — identificação, CPF mascarado e e-mail em leitura, com o

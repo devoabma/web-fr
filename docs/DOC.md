@@ -88,7 +88,7 @@ src/
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── index.ts                   # helpers sem dependência (getInitials)
-│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento)
+│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/
     ├── utils.ts                   # cn() — clsx + tailwind-merge
@@ -267,7 +267,8 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/sign-in` | `(public)` | pronta e **autenticando** contra a `api-fr` |
 | `/panel` | `(private)` | sala e operação das máquinas: seleção (`?sala=`), colaboradores, cota, grade e as quatro ações. **Protegida pelo `proxy.ts`** |
 | `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
-| `/auth/forgot-password` | — | **linkada pelo login, não existe** |
+| `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
+| `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
@@ -280,6 +281,11 @@ Confirmar antes de planejar as telas correspondentes.
 > `PUBLIC_ROUTES` (`src/lib/auth/routes.ts`) — senão o `proxy.ts` a redireciona para o login e nem a 404
 > aparece. Foi o que aconteceu com o rodapé, que apontava para `/privacidade` e `/suporte` enquanto a lista
 > declarava `/privacy` e `/support`; os `href` foram alinhados à convenção de URLs em inglês.
+
+> **As telas de recuperação não vão para `PUBLIC_ROUTES`.** Elas caem em `AUTH_ROUTES` (`/auth`), que é
+> mais estrito: alcançável só por quem **não** tem sessão. Quem já está logado e tenta abrir
+> `/auth/forgot-password` é devolvido ao painel pelo proxy — quem está dentro troca a senha em `/profile`,
+> com a senha atual em mãos.
 
 > **O hero da landing continua apontando para `/auth/sign-in`**, e não para `/panel` — correto para quem
 > não tem sessão, e quem tem é devolvido ao painel pelo próprio proxy.
@@ -665,6 +671,70 @@ podendo divergir na mesma aba — como se chega aqui pelo menu do usuário, o da
 **O item do menu virou âncora**: `DropdownMenuItem` com `render={<Link href="/profile" />}`, não
 `router.push` no clique. Navegação programática descartaria abrir em nova aba, o prefetch do `next/link` e o
 endereço na barra de status.
+
+### Recuperação de senha (`/auth/forgot-password` e `/auth/reset-password`)
+
+O caminho de quem está **do lado de fora**: sem sessão, sem senha e sem como pedir nada ao painel. Quem está
+dentro troca a senha em `/profile`; aqui só se chega pelo link da tela de login ou pelo e-mail.
+
+São duas telas e duas rotas públicas da API:
+
+| Tela | Rota da API | Corpo | Teto |
+| --- | --- | --- | --- |
+| `/auth/forgot-password` | `POST /employees/password-recovery` | `{ cpf, email }` | 5 por 15 min por IP, **janela reinicia a cada excesso** |
+| `/auth/reset-password` | `POST /employees/reset-password` | `{ code, password, confirmPassword }` | 10 por 10 min por IP |
+
+O código tem **6 caracteres `[A-Z0-9]`** e vale **5 minutos**. Cada solicitação apaga os códigos anteriores
+daquele funcionário: o último e-mail é sempre o que vale.
+
+**As duas caixas andam em direções opostas, e isso é proposital.** O código sobe para caixa-alta
+(`maskRecoveryCode`) porque a API o procura com `findUnique({ code })`, comparação sensível a maiúsculas —
+código colado em minúsculo voltaria como inválido. Já o **e-mail vai como foi digitado**, sem
+`.toLowerCase()`: a `api-fr` grava o endereço do cadastro só com `.trim()` e o procura pelo mesmo
+`findUnique`, então normalizar no front recusaria justamente quem foi cadastrado com maiúscula. A regra é
+espelhar o backend, não "arrumar" o dado.
+
+**O `?code=` do e-mail é higienizado antes de encostar no campo.** O e-mail traz
+`${WEB_URL}/auth/reset-password?code=...`; o Server Component faz `trim`, sobe a caixa e só aceita o valor
+se ele casar com o formato — qualquer outra coisa vira campo vazio. Um código quase-certo plantado por link
+adulterado faria o funcionário enviar um formulário condenado e gastar tentativa da cota. Por isso
+`isRecoveryCode` mora em `src/utils/masks/recovery-code.ts`, e não no arquivo do schema: o schema arrasta o
+`react-hook-form`, que não roda no servidor.
+
+**Enviado o código, o formulário dá lugar a um painel de confirmação** no mesmo endereço — não a uma rota
+nova. Rota nova exigiria carregar CPF e e-mail por query string, ou seja, dado de identificação no histórico
+do navegador de uma máquina de balcão. O par fica em memória (`sentTo`), que é exatamente o que o reenvio
+precisa e nada além.
+
+**O reenvio trava por 60 segundos**, e o contador é derivado de um instante absoluto (`cooldownEndsAt`), não
+decrementado a cada tique — aba em segundo plano ou notebook suspenso engasgam o `setInterval`, e um
+contador que só subtrai ficaria parado em "42s" sem nunca liberar o botão. A trava é contra o erro honesto
+(clicar de novo achando que não foi): como a janela da API reinicia a cada excesso, dois cliques nervosos
+trancariam o funcionário justamente quando ele mais precisa do código. Proteção real continua sendo o rate
+limit da API — recarregar a página zera o contador do cliente.
+
+**O foco depois do erro é escolhido pela mensagem.** A API recusa a redefinição por dois motivos muito
+diferentes — código inválido/expirado e senha igual à anterior — e devolve os dois como `400` sem nada que
+os distinga além do texto. O formulário lê a mensagem: se fala em "código", o cursor vai para o código;
+senão, para a senha. Acoplamento ao texto do backend, assumido: se a API reescrever a frase, o foco cai no
+campo errado e nada mais — a mensagem completa continua no aviso do topo. O caminho definitivo é um código
+de erro no corpo do `400`.
+
+> ⚠️ **Redefinir a senha não expulsa ninguém.** Como na troca pela tela de conta, a `api-fr` só regrava o
+> `passwordHash`: um JWT já emitido segue válido até expirar (1 dia). Quem recuperou o acesso por
+> desconfiança **não** derruba a sessão de quem estava dentro.
+
+> Em `NODE_ENV != production` a `api-fr` manda o e-mail para um destinatário fixo no código do backend, não
+> para o e-mail do funcionário. É comportamento da API — anotado aqui para não assustar em desenvolvimento.
+
+> A API responde igual para par inexistente e par trocado (`400 "Credenciais inválidas."`). Bom para
+> privacidade, ruim para diagnóstico: a tela repassa a mensagem da API sem inventar detalhe que ela não deu.
+
+**O `metadata` desceu do layout para as páginas.** `(public)/auth/layout.tsx` fixava `title: 'Entrar'`; com
+três rotas debaixo dele, as telas de recuperação herdariam esse rótulo na aba e no histórico. Cada página
+declara o próprio título.
+
+---
 
 ---
 

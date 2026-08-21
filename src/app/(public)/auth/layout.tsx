@@ -1,12 +1,7 @@
-import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { BrandMark } from '@/components/app/brand-mark'
 import { cn } from '@/lib/utils'
-
-export const metadata: Metadata = {
-  title: 'Entrar',
-}
 
 export default function AuthLayout({
   children,
