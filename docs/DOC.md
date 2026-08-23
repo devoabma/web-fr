@@ -69,6 +69,7 @@ src/
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
+│       ├── admin/rooms/           # /admin/rooms — cadastro de sala (page + _components); listagem ainda não existe
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -79,7 +80,7 @@ src/
 ├── constants/query-keys.ts        # chaves do React Query, centralizadas
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout e troca de senha
-│   ├── rooms/                     # get-all.ts (GET /rooms/get-all)
+│   ├── rooms/                     # get-all.ts (GET /rooms/get-all) e create.ts (POST /rooms/create)
 │   ├── computers/                 # estações conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/
@@ -88,7 +89,7 @@ src/
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── index.ts                   # helpers sem dependência (getInitials)
-│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação)
+│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação, slug)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/
     ├── utils.ts                   # cn() — clsx + tailwind-merge
@@ -269,8 +270,9 @@ Confirmar antes de planejar as telas correspondentes.
 | `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
+| `/admin/rooms` | `(private)` | **só o cadastro de sala**: cabeçalho e painel lateral de nova sala. A listagem ainda não existe. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
-| `/admin/rooms`, `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
+| `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -735,6 +737,65 @@ três rotas debaixo dele, as telas de recuperação herdariam esse rótulo na ab
 declara o próprio título.
 
 ---
+
+### Salas de liberação (`/admin/rooms`)
+
+Primeira área administrativa a existir de fato — as outras quatro ainda caem na 404. Por enquanto ela tem
+**só o cadastro**: cabeçalho da área e um painel lateral (`Sheet`) com o formulário de nova sala. A listagem
+(`GET /rooms/get-all`) é o próximo passo.
+
+Sala é a raiz do modelo: computador pertence a uma sala, funcionário é vinculado a salas, sessão de advogado
+acontece dentro de uma sala. Sem esta tela, todo ambiente novo começava por um `INSERT` na mão.
+
+**Três campos, uma regra de negócio:**
+
+| Campo | Validação do front | Na `api-fr` |
+| --- | --- | --- |
+| `name` | 3 a 60 caracteres | obrigatório; gravado em **maiúsculas** |
+| `standardTime` | inteiro de **15 a 480 minutos** | opcional; qualquer inteiro positivo |
+| `description` | até 200 caracteres | opcional; em branco vira `undefined`, não string vazia |
+
+O `standardTime` **é a cota diária** de cada advogado naquela sala. Erro de digitação aqui não quebra tela
+nenhuma — muda em silêncio quanto tempo cada advogado tem no dia inteiro. Daí duas defesas: o teto de 480
+minutos (decisão **do front**; a API aceita mais) e a leitura em horas ao lado do campo, com
+`aria-live="polite"`, para `180` ser conferido como `3h` sem aritmética mental.
+
+#### A unicidade da sala é do `slug`, não do nome
+
+A `api-fr` deriva o identificador com `slugify(name, { lower: true, strict: true })` e recusa com `400`
+(`"Sala com esse nome já cadastrada."`) quando ele colide. Quem digita "Sala 1" e "Sala-1" acha que criou
+duas salas; a API vê `sala1` nas duas vezes e recusa a segunda falando de um **nome** que o administrador
+acabou de conferir.
+
+Por isso o formulário mostra a prévia do identificador embaixo do campo de nome, enquanto se digita
+(`utils/masks/slug.ts`). A máscara imita as etapas do `slugify` estrito de propósito — **inclusive o descarte
+do hífen digitado**, que faz "Sala-1" virar `sala1`. Prévia que embeleza é pior que nenhuma: promete um
+identificador que o banco não vai ter.
+
+> O `slug` **não viaja no corpo** da requisição: a rota não lê esse campo. A prévia é espelho, não contrato —
+> se a API trocar de estratégia de slug, ela passa a mentir sem nada quebrar.
+
+#### O que o formulário protege
+
+- **Fechar o painel lateral durante o envio é bloqueado.** O `reset()` limparia o formulário com a chamada
+  de pé, e o aviso de erro chegaria a uma tela sem os dados para corrigir — mesmo cuidado do diálogo de
+  troca de senha.
+- **Botão desabilitado enquanto envia.** Dois cliques disparavam dois `POST`; o segundo voltava como "sala já
+  cadastrada" logo depois de a sala ter sido criada com sucesso.
+- **Erro da API é o texto que aparece** (`getApiErrorMessage` + `getRetryAfterInSeconds`), com o foco de
+  volta no campo de nome — é o campo que a API recusa na prática.
+- **`queryKeys.getRooms()` invalidada** após o cadastro: a sala nova aparece no seletor do painel sem
+  recarregar a página.
+
+> ⚠️ **Cadastrar sem listar deixa o administrador sem confirmação na própria tela.** Enquanto a listagem não
+> existir, a defesa contra cadastro duplicado é o `400` da API, não a interface.
+
+#### `ESTAÇÃO-01` no lugar de `PC-01`
+
+O rótulo do cartão da grade (`panel/_data/computer-view.ts`) é lido em voz alta no balcão — "vá para a
+estação 3". `PC` é abreviação de manual técnico. Mudou o vocabulário, não o dado: o número continua vindo de
+`computer.number`. A ilustração da landing (`dashboard-preview.tsx`) ainda mostra `PC-01`; é peça de
+marketing, com nomes de sala fictícios, mas agora diverge do produto.
 
 ---
 

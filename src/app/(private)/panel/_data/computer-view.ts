@@ -77,7 +77,7 @@ export function buildComputerViews(
 
       return {
         id: computer.id,
-        name: `PC-${String(computer.number).padStart(2, '0')}`,
+        name: `ESTAÇÃO-${String(computer.number).padStart(2, '0')}`,
         description: computer.description,
         macCode: computer.macCode,
         status,

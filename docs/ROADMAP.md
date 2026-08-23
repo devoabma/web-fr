@@ -106,8 +106,8 @@
       HTML de quem não pode vê-lo
 - [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
       herdar "Painel"
-- [ ] Criar as cinco áreas que a sidebar já referencia — hoje `/printers`, `/releases`, `/admin/rooms`,
-      `/admin/computers` e `/admin/employees` caem na 404
+- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` existe (só cadastro, ver seção 5);
+      `/printers`, `/releases`, `/admin/computers` e `/admin/employees` ainda caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
 - [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
       `/auth/sign-in` (correto para quem não tem sessão, mas o proxy já devolveria ao painel quem tem)
@@ -166,8 +166,10 @@
       funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
 ### Salas
-- [ ] Listar (`GET /rooms/get-all`)
-- [ ] Cadastrar (`POST /rooms/create`)
+- [ ] Listar (`GET /rooms/get-all`) — a tela `/admin/rooms` ainda não mostra as salas cadastradas
+- [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, tempo padrão em minutos (lido em horas ao
+      lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e não
+      o nome, que decide a unicidade da sala
 - [ ] Editar (`PATCH /rooms/update/:id`)
 - [ ] Ativar / inativar (`PATCH /rooms/activate/:id` e `/deactivate/:id`)
 
