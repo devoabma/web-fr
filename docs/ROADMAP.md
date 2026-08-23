@@ -166,12 +166,16 @@
       funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
 ### Salas
-- [ ] Listar (`GET /rooms/get-all`) — a tela `/admin/rooms` ainda não mostra as salas cadastradas
+- [x] Listar (`GET /rooms/get-all`) — tabela com nome, tempo padrão, descrição, situação e data de criação,
+      busca por nome e paginação no cliente (a rota devolve tudo de uma vez). A primitiva `DataTable`
+      (TanStack v9) nasceu no design system para as outras quatro áreas reusarem
 - [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, tempo padrão em minutos (lido em horas ao
       lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e não
       o nome, que decide a unicidade da sala
-- [ ] Editar (`PATCH /rooms/update/:id`)
-- [ ] Ativar / inativar (`PATCH /rooms/activate/:id` e `/deactivate/:id`)
+- [ ] Editar (`PATCH /rooms/update/:id`) — o botão já existe na linha da tabela e ainda não faz nada
+- [x] Ativar / inativar (`PATCH /rooms/activate/:id` e `/deactivate/:id`) — inativar pede confirmação e diz
+      quantos computadores saem do quadro de liberação; reativar vai direto, por ser construtivo e reversível
+      pelo botão ao lado
 
 ### Computadores
 - [ ] Listar com filtros por sala e descrição (`GET /computers/get-all`) — **sem paginação na API**

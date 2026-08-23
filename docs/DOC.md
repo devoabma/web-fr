@@ -30,6 +30,8 @@ A documentação de domínio (regras de negócio, fluxos, banco) é mantida na A
 - **React Hook Form + Zod** (`@hookform/resolvers`) — formulários e validação
 - **axios** — cliente HTTP da `api-fr` (`src/lib/axios.ts`)
 - **TanStack React Query 5** — camada de dados do cliente
+- **TanStack React Table 9** — primitiva `DataTable` das áreas administrativas
+- **date-fns** — formatação de datas nas tabelas
 - **Biome 2.4** (lint + format) · **pnpm**
 
 ```bash
@@ -69,7 +71,7 @@ src/
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
-│       ├── admin/rooms/           # /admin/rooms — cadastro de sala (page + _components); listagem ainda não existe
+│       ├── admin/rooms/           # /admin/rooms — cadastro, listagem e ativar/inativar sala (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -77,10 +79,11 @@ src/
 │   ├── app/                       # uma seção/feature por arquivo
 │   │   └── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
 │   └── ui/                        # primitivas shadcn/base-ui
+│       └── data-table/            # tabela reusável (TanStack v9): features, rodapé de paginação
 ├── constants/query-keys.ts        # chaves do React Query, centralizadas
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout e troca de senha
-│   ├── rooms/                     # get-all.ts (GET /rooms/get-all) e create.ts (POST /rooms/create)
+│   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
 │   ├── computers/                 # estações conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/
@@ -88,7 +91,7 @@ src/
 │   └── use-elapsed-minutes.ts     # minutos decorridos desde uma resposta, para o saldo andar na tela
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
-│   ├── index.ts                   # helpers sem dependência (getInitials)
+│   ├── index.ts                   # helpers sem dependência (getInitials, formatDuration, formatMinutes)
 │   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação, slug)
 │   └── schemas/                   # schemas Zod reutilizáveis (CPF)
 └── lib/
@@ -270,7 +273,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
-| `/admin/rooms` | `(private)` | **só o cadastro de sala**: cabeçalho e painel lateral de nova sala. A listagem ainda não existe. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, e alternância entre ativa e inativa. Editar ainda não existe. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
@@ -740,9 +743,9 @@ declara o próprio título.
 
 ### Salas de liberação (`/admin/rooms`)
 
-Primeira área administrativa a existir de fato — as outras quatro ainda caem na 404. Por enquanto ela tem
-**só o cadastro**: cabeçalho da área e um painel lateral (`Sheet`) com o formulário de nova sala. A listagem
-(`GET /rooms/get-all`) é o próximo passo.
+Primeira área administrativa a existir de fato — as outras quatro ainda caem na 404. A tela tem o cabeçalho
+da área, um painel lateral (`Sheet`) com o formulário de nova sala e a **tabela das salas cadastradas**, com
+busca por nome, paginação e a alternância entre ativa e inativa. Falta só editar.
 
 Sala é a raiz do modelo: computador pertence a uma sala, funcionário é vinculado a salas, sessão de advogado
 acontece dentro de uma sala. Sem esta tela, todo ambiente novo começava por um `INSERT` na mão.
@@ -787,8 +790,61 @@ identificador que o banco não vai ter.
 - **`queryKeys.getRooms()` invalidada** após o cadastro: a sala nova aparece no seletor do painel sem
   recarregar a página.
 
-> ⚠️ **Cadastrar sem listar deixa o administrador sem confirmação na própria tela.** Enquanto a listagem não
-> existir, a defesa contra cadastro duplicado é o `400` da API, não a interface.
+#### A tabela é primitiva do design system
+
+`components/ui/data-table/` não pertence à tela de salas. As cinco áreas administrativas têm a mesma
+anatomia — buscar, paginar, agir na linha —, e é copiando um arquivo de `_components/` que os rodapés
+começam a divergir entre telas. A primitiva recebe `columns`, `data`, `isLoading` e `emptyMessage`; a tela
+só descreve as colunas (`rooms-columns.tsx`).
+
+O TanStack Table **v9** exige declarar as features (`tableFeatures({...})`), e o tipo delas atravessa
+`ColumnDef` e `ReactTable`. Daí o arquivo `data-table-features.ts` separado: é o `DataTableFeatures` que as
+colunas de cada tela importam — inclusive o `columnMeta` (`className`, `skeletonClassName`) que alinha a
+coluna e dá o formato do esqueleto de carregamento.
+
+- **Esqueleto no formato da tabela, não spinner.** Um spinner centralizado troca a moldura duas vezes: some,
+  entra a tabela, os cabeçalhos saltam. O placeholder usa a mesma grade de colunas.
+- **O rodapé tem ramo de carregamento.** Sem ele, anunciaria "Total: 0 registros" para uma consulta que
+  ainda nem respondeu.
+- **A contagem vem de `getPrePaginatedRowModel()`** — `getRowModel()` já veio fatiado pela página atual.
+- **`getPageCount()` devolve `0` na lista vazia**, o que imprimiria "Página 1 de 0"; o rodapé força o piso
+  em 1.
+
+> **Busca e paginação são do cliente.** `GET /rooms/get-all` devolve tudo de uma vez, sem paginação nem
+> filtro — a mesma lacuna já registrada para funcionários e computadores. O filtro roda num `useMemo` sobre
+> `data.rooms`, e o `?? []` mora **dentro** dele: o TanStack memoiza o row model pela identidade de `data`, e
+> um `[]` literal no atributo seria um array novo a cada render. Como o modelo central observa essa
+> identidade, trocar a busca já devolve a paginação à primeira página sozinho.
+
+#### Ativar e inativar são dois componentes, não um botão com `if`
+
+A `api-fr` não exclui sala: o que existe é `PATCH /rooms/activate/:id` e `/rooms/deactivate/:id`. Rotas
+diferentes, mensagens diferentes e — o que decide a separação — **níveis de confirmação diferentes**.
+
+- **Inativar pede confirmação** e o diálogo diz quantos computadores deixam de aparecer para os funcionários,
+  com o plural certo, e afirma que nada é apagado.
+- **Reativar vai direto.** Não há consequência a avisar e a ação é desfeita pelo botão ao lado; confirmar ali
+  seria cerimônia sem conteúdo.
+- **Botão desabilitado durante a chamada** nos dois sentidos. Sem isso, o duplo clique dispara dois `PATCH` e
+  o segundo volta como "Sala já está inativa." — erro para uma ação que acabou de dar certo.
+- **O diálogo resiste ao fechamento** enquanto a chamada está de pé: fechar esconderia a sala, e o aviso de
+  erro chegaria a uma tela sem o contexto do que se tentava fazer.
+- **`queryKeys.getRooms()` invalidada** depois de cada alternância — a mesma chave do seletor do painel.
+
+O status aparece como `Badge` (destrutivo na inativa, contorno com ponto pulsante na ativa) e não como cor da
+linha: sala fora de uso é estado normal, não falha, e listrar a tabela de vermelho competiria com a leitura
+das outras colunas.
+
+> ⚠️ **A cor do interruptor descreve o estado, não a ação** — verde na sala ativa, vermelho na inativa. Quem
+> lê a cor como consequência do clique entende invertido; quem diz a ação são o tooltip e o diálogo. A coluna
+> de status já dá o mesmo estado por escrito.
+
+> ⚠️ **O botão de editar da linha ainda não faz nada.** `PATCH /rooms/update/:id` não foi encapsulado. Ficou
+> visível de propósito, para a lacuna não sumir da tela.
+
+> ⚠️ **Duas estratégias de data no mesmo projeto.** A coluna de criação usa `date-fns`; a grade do painel usa
+> `Intl.DateTimeFormat` (`computer-card.tsx`). Se `date-fns` não render mais que uma coluna, a dependência
+> sai.
 
 #### `ESTAÇÃO-01` no lugar de `PC-01`
 

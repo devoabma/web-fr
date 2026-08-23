@@ -13,21 +13,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { queryKeys } from '@/constants/query-keys'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import { createRoom } from '@/server/rooms/create'
+import { formatDuration } from '@/utils'
 import { maskSlug } from '@/utils/masks/slug'
 import { type NewRoomFormType, useNewRoomForm } from './new-room-schema'
-
-// Campo `number` vazio vira NaN no react-hook-form, por isso o Number.isFinite antes de qualquer conta.
-function formatMinutes(minutes: number) {
-  if (!Number.isFinite(minutes) || minutes <= 0) return null
-
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-
-  if (hours === 0) return `${rest}min`
-  if (rest === 0) return `${hours}h`
-
-  return `${hours}h${String(rest).padStart(2, '0')}`
-}
 
 export function NewRoom() {
   const [open, setOpen] = useState(false)
@@ -47,7 +35,7 @@ export function NewRoom() {
   const name = useWatch({ control, name: 'name' })
   const standardTime = useWatch({ control, name: 'standardTime' })
 
-  const standardTimeHint = formatMinutes(standardTime)
+  const standardTimeHint = formatDuration(standardTime)
 
   // Só um espelho do que a api-fr vai gerar — o slug não viaja no corpo da requisição.
   const slugPreview = maskSlug(name)
@@ -80,27 +68,21 @@ export function NewRoom() {
       await createRoomMutation({
         name,
         standardTime,
-        // Campo opcional na api-fr: string vazia gravaria `""` no banco, e o painel trata a ausência
-        // de descrição como `null`.
         description: description || undefined,
       })
 
-      // A sala nova precisa aparecer no seletor do painel sem exigir recarga da página.
       await queryClient.invalidateQueries({ queryKey: queryKeys.getRooms() })
 
       toast.success(`Sala ${name} cadastrada.`, {
-        description: `${formatMinutes(standardTime)} de cota por advogado.`,
+        description: `${formatDuration(standardTime)} de cota por advogado.`,
       })
 
       closeSheet()
     } catch (err) {
-      // O nome é o campo que a api-fr recusa na prática (slug duplicado), então é nele que o foco volta.
       setFocus('name')
 
       const retryAfterInSeconds = getRetryAfterInSeconds(err)
 
-      // A `message` da api-fr é o que explica a recusa ("Sala com esse nome já cadastrada."). O texto
-      // genérico só entra quando não veio resposta nenhuma — queda de rede, 502 respondendo HTML.
       toast.error(
         retryAfterInSeconds
           ? `Muitas tentativas. Tente novamente em ${formatWaitTime(retryAfterInSeconds)}.`
@@ -111,7 +93,7 @@ export function NewRoom() {
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger render={<Button variant="default" />}>
+      <SheetTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
         <PlusIcon data-icon="inline-start" /> Adicionar Sala
       </SheetTrigger>
 

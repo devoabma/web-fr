@@ -2,10 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
-// O `slug` não entra aqui: quem gera é a api-fr, a partir do nome. O formulário só mostra a prévia.
 const newRoomFormSchema = z.object({
   name: z.string().trim().min(3, 'Nome da sala obrigatório.').max(60, 'Nome muito longo (máx. 60 caracteres).'),
-  // O teto de 480 min existe para o erro de digitação não virar cota do dia inteiro numa sala.
   standardTime: z
     .number({ error: 'Informe o tempo padrão em minutos.' })
     .int('Use minutos inteiros.')

@@ -25,6 +25,7 @@ export type RoomProps = {
   description: string | null
   /** Data ISO da desativação da sala — `null` enquanto ela está ativa. */
   inactive: string | null
+  createdAt: string
   employeesRooms: EmployeeRoomProps[]
   computers: ComputerProps[]
 }
