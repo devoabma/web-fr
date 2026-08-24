@@ -2,15 +2,13 @@
 
 import { createColumnHelper } from '@tanstack/react-table'
 import { format, isValid, parseISO } from 'date-fns'
-import { SquarePen } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import type { DataTableFeatures } from '@/components/ui/data-table/data-table-features'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { RoomProps } from '@/server/rooms/get-all'
 import { formatMinutes } from '@/utils'
 import { ActivateRoom } from './activate-room'
 import { InactiveRoom } from './inactive-room'
+import { UpdateRoom } from './update-room'
 
 const columnHelper = createColumnHelper<DataTableFeatures, RoomProps>()
 
@@ -62,13 +60,7 @@ export const columns = columnHelper.columns([
           {/* Cada sentido do toggle é um componente próprio: rotas, confirmação e mensagens diferentes. */}
           {room.inactive ? <ActivateRoom room={room} /> : <InactiveRoom room={room} />}
 
-          <Tooltip>
-            <TooltipTrigger render={<Button variant="outline" size="icon-sm" aria-label="Editar sala" />}>
-              <SquarePen />
-            </TooltipTrigger>
-
-            <TooltipContent>Editar sala</TooltipContent>
-          </Tooltip>
+          <UpdateRoom room={room} />
         </div>
       )
     },

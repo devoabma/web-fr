@@ -14,7 +14,6 @@ type ActivateRoomProps = {
   room: RoomProps
 }
 
-/** Reativar é construtivo e reversível pelo botão ao lado: vai direto, sem confirmação. */
 export function ActivateRoom({ room }: ActivateRoomProps) {
   const queryClient = useQueryClient()
 

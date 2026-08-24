@@ -71,7 +71,7 @@ src/
 │       ├── layout.tsx             # shell: barra superior + sidebar + área de conteúdo
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
-│       ├── admin/rooms/           # /admin/rooms — cadastro, listagem e ativar/inativar sala (page + _components)
+│       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -273,7 +273,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/profile` | `(private)` | conta do funcionário: identificação, CPF e e-mail em leitura, troca de senha e troca da foto de perfil. Alcançada pelo menu do usuário, **sem item na sidebar** |
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
-| `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, e alternância entre ativa e inativa. Editar ainda não existe. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
@@ -745,7 +745,8 @@ declara o próprio título.
 
 Primeira área administrativa a existir de fato — as outras quatro ainda caem na 404. A tela tem o cabeçalho
 da área, um painel lateral (`Sheet`) com o formulário de nova sala e a **tabela das salas cadastradas**, com
-busca por nome, paginação e a alternância entre ativa e inativa. Falta só editar.
+busca por nome, paginação, edição em diálogo e a alternância entre ativa e inativa. O ciclo da sala está
+fechado: criar, ver, corrigir e tirar de operação sem sair da tela.
 
 Sala é a raiz do modelo: computador pertence a uma sala, funcionário é vinculado a salas, sessão de advogado
 acontece dentro de uma sala. Sem esta tela, todo ambiente novo começava por um `INSERT` na mão.
@@ -839,8 +840,42 @@ das outras colunas.
 > lê a cor como consequência do clique entende invertido; quem diz a ação são o tooltip e o diálogo. A coluna
 > de status já dá o mesmo estado por escrito.
 
-> ⚠️ **O botão de editar da linha ainda não faz nada.** `PATCH /rooms/update/:id` não foi encapsulado. Ficou
-> visível de propósito, para a lacuna não sumir da tela.
+#### Editar é diálogo, cadastrar é painel lateral
+
+`PATCH /rooms/update/:id` é `ADMIN`-only e aceita **corpo parcial** — `name`, `standardTime` e `description`
+são todos opcionais. O formulário de edição (`update-room.tsx`) repete os três campos do cadastro, com a
+mesma prévia de identificador e a mesma leitura do tempo em horas, mas em `Dialog` e não em `Sheet`.
+
+A escolha não é estética. Cadastrar é composição: o administrador chega com a sala na cabeça e preenche do
+zero, e o painel lateral deixa a tela livre ao lado. Editar é correção pontual disparada **de dentro de uma
+linha da tabela** — o diálogo centralizado mantém a linha visível ao redor em vez de jogar a leitura para a
+borda.
+
+- **Clique fora não fecha** (`disablePointerDismissal` do Base UI). O formulário de edição abre preenchido, e
+  a tabela ocupa a tela atrás dele: um clique torto na linha de baixo descartaria tudo, sem aviso e sem
+  desfazer. **ESC e Cancelar continuam fechando** — modal sem saída pelo teclado é barreira de
+  acessibilidade, não proteção.
+- **Os campos são recarregados da sala a cada abertura** (`reset`), e não zerados no fechamento. Zerar no
+  fechamento faria o formulário piscar com os valores antigos durante a animação de saída; não resetar em
+  lugar nenhum faria um rascunho abandonado reaparecer na abertura seguinte **parecendo dado salvo**.
+- **Salvar exige alteração** (`isDirty`) e uma só (`isPending`). Editar um campo e devolvê-lo ao valor
+  original desarma o botão de novo, porque não há o que salvar. Sem a trava do envio, o segundo `PATCH` de um
+  duplo clique poderia voltar como "Sala com esse nome já cadastrada." — a sala colidindo com o nome que ela
+  mesma acabou de receber.
+
+> ⚠️ **A descrição tem três estados, não dois.** A rota testa `description !== undefined`: omitir mantém o
+> que está gravado, `null` limpa e `''` **grava uma descrição em branco**. Como o campo de texto devolve `''`
+> quando esvaziado, o envio converte com `description || null` — e o tipo em `server/rooms/update.ts` é
+> `string | null` justamente para o compilador cobrar essa distinção de quem chamar a função.
+
+> ⚠️ **O nome aparece em caixa alta no formulário.** A `api-fr` grava `name.toUpperCase()` no cadastro e na
+> edição, então o campo mostra o que está no banco. Normalizar isso é decisão da camada de apresentação — o
+> formulário precisa mostrar o valor real, não uma versão embelezada do que a API guarda.
+
+> ⚠️ **Renomear pode ser recusado depois de preenchido.** A colisão de `slug` só é conhecida na resposta: a
+> prévia do identificador mostra o que vai ser gravado, mas não sabe quais já existem. E **duas mãos editando
+> a mesma sala se sobrescrevem** — não há verificação de versão no corpo, a última gravação vence em
+> silêncio.
 
 > ⚠️ **Duas estratégias de data no mesmo projeto.** A coluna de criação usa `date-fns`; a grade do painel usa
 > `Intl.DateTimeFormat` (`computer-card.tsx`). Se `date-fns` não render mais que uma coluna, a dependência

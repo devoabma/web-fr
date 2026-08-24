@@ -106,7 +106,7 @@
       HTML de quem não pode vê-lo
 - [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
       herdar "Painel"
-- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` existe (só cadastro, ver seção 5);
+- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` existe (cadastro, listagem e edição, ver seção 5);
       `/printers`, `/releases`, `/admin/computers` e `/admin/employees` ainda caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
 - [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
@@ -172,7 +172,9 @@
 - [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, tempo padrão em minutos (lido em horas ao
       lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e não
       o nome, que decide a unicidade da sala
-- [ ] Editar (`PATCH /rooms/update/:id`) — o botão já existe na linha da tabela e ainda não faz nada
+- [x] Editar (`PATCH /rooms/update/:id`) — diálogo aberto pelo botão da linha, já preenchido com a sala.
+      Clique fora não fecha (ESC e Cancelar sim), reabrir descarta o rascunho anterior, salvar exige
+      alteração e a descrição apagada limpa o campo em vez de gravar uma string vazia
 - [x] Ativar / inativar (`PATCH /rooms/activate/:id` e `/deactivate/:id`) — inativar pede confirmação e diz
       quantos computadores saem do quadro de liberação; reativar vai direto, por ser construtivo e reversível
       pelo botão ao lado

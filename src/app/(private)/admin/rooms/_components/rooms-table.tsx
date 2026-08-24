@@ -17,8 +17,6 @@ export function RoomsTable() {
     queryFn: getAllRooms,
   })
 
-  // O fallback mora aqui, e não no JSX: `data={x ?? []}` criaria um array novo a cada render e o
-  // TanStack, que memoiza o row model pela identidade de `data`, remontaria a tabela sem motivo.
   const filteredRooms = useMemo(() => {
     const lowerRoomSearch = searchRoom.trim().toLowerCase()
 
