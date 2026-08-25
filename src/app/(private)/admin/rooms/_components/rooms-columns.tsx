@@ -57,10 +57,10 @@ export const columns = columnHelper.columns([
 
       return (
         <div className="flex items-center justify-center gap-1">
+          <UpdateRoom room={room} />
+
           {/* Cada sentido do toggle é um componente próprio: rotas, confirmação e mensagens diferentes. */}
           {room.inactive ? <ActivateRoom room={room} /> : <InactiveRoom room={room} />}
-
-          <UpdateRoom room={room} />
         </div>
       )
     },

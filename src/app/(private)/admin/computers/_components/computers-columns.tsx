@@ -7,6 +7,7 @@ import type { DataTableFeatures } from '@/components/ui/data-table/data-table-fe
 import { cn } from '@/lib/utils'
 import type { ComputerWithRoomProps } from '@/server/computers/get-all'
 import { DeleteComputer } from './delete-computer'
+import { UpdateComputer } from './update-computer'
 
 const columnHelper = createColumnHelper<DataTableFeatures, ComputerWithRoomProps>()
 
@@ -65,6 +66,8 @@ export const columnsComputers = columnHelper.columns([
     meta: { className: 'text-center', skeletonClassName: 'h-7 w-16' },
     cell: ({ row }) => (
       <div className="flex items-center justify-center gap-1">
+        <UpdateComputer computer={row.original} />
+
         <DeleteComputer computer={row.original} />
       </div>
     ),

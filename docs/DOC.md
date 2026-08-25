@@ -72,7 +72,7 @@ src/
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
-│       ├── admin/computers/       # /admin/computers — cadastro, listagem e exclusão de máquina (page + _components)
+│       ├── admin/computers/       # /admin/computers — cadastro, listagem, edição e exclusão (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -85,7 +85,7 @@ src/
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout e troca de senha
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
-│   ├── computers/                 # get-all, create, delete, estações conectadas e entrada/saída de manutenção
+│   ├── computers/                 # get-all, create, update, delete, conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
@@ -253,10 +253,6 @@ Confirmar antes de planejar as telas correspondentes.
 - ~~**Liberar computador manualmente pelo funcionário**~~ — **falso alarme, corrigido em 2026-08-19.**
   `POST /lawyers/release-computer` sempre existiu, é **pública** e identifica a máquina pelo `macCode`. Foi
   desenhada para o Desktop e serve o painel sem alteração alguma.
-- **Editar computador não existe** — há `create`, `get-all` e `delete`, mas nenhum
-  `PATCH /computers/update/:id`. Como a exclusão é definitiva e em cascata (leva sessões e impressões),
-  corrigir um `macCode` digitado errado custa o histórico da máquina. Confirmado em **2026-08-24**, ao
-  construir `/admin/computers`.
 - **Baixar arquivo da fila de impressão** — a listagem existe, o download não.
 - **Relatórios** — nada implementado.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
@@ -279,7 +275,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
-| `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/admin/employees` | — | **linkada pela sidebar, não existe**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
@@ -919,8 +915,8 @@ para o MAC. É o campo mais frágil desta tela e o que menos avisa quando está 
 | --- | --- | --- |
 | `roomId` | `cuid2`; só salas **ativas** no seletor | obrigatório |
 | `number` | inteiro ≥ 1, sugerido como `maior + 1` da sala | **único por sala** — colisão volta `400` |
-| `description` | 1 a 50 caracteres | gravado em **maiúsculas** |
-| `macCode` | 12 dígitos hexadecimais, qualquer separador | **único** — colisão volta `400` |
+| `description` | 1 a 50 caracteres | **única por sala**; gravada em **maiúsculas** |
+| `macCode` | 12 dígitos hexadecimais, qualquer separador | **único globalmente** — colisão volta `400` |
 
 #### Máscara e schema fazem coisas diferentes
 
@@ -976,9 +972,28 @@ Máquina **em uso** tem a exclusão bloqueada — a API recusa com `400`, porque
 encerrada antes. O botão usa `aria-disabled`, não `disabled`: botão desabilitado não dispara `hover`, e o
 tooltip é justamente o que explica por que a ação está fora do ar.
 
-> ⚠️ **Não existe edição de computador.** A `api-fr` não expõe `PATCH /computers/update/:id`. Corrigir um MAC
-> digitado errado significa excluir e recadastrar — apagando o histórico junto. O erro de digitação custa
-> caro e não tem conserto barato.
+#### Editar corrige o MAC sem apagar o histórico
+
+`PATCH /computers/update/:id` é `ADMIN`-only e aceita corpo **parcial** — `macCode`, `number`, `description`
+e `roomId`, todos opcionais. O botão de editar abre um diálogo no mesmo arranjo do cadastro
+(`update-computer.tsx`), com `disablePointerDismissal` como em `/admin/rooms`.
+
+É a única forma de consertar um MAC errado sem passar pela exclusão, que levaria o histórico de sessões e as
+impressões junto.
+
+Duas diferenças em relação ao cadastro, e as duas existem por causa da API:
+
+- **A sala atual entra no seletor mesmo inativa.** A API só verifica que a sala de destino existe, não que
+  está ativa — barrar sala inativa é decisão desta tela. Mas filtrar sem exceção deixaria sem valor o seletor
+  da máquina que está justamente numa sala desativada: o campo abriria vazio, o `isDirty` marcaria uma
+  mudança que ninguém fez, e o formulário pareceria corrompido antes de o usuário tocar em nada.
+- **Os números em uso não incluem os da própria máquina.** A API compara com `id: { not: id }`; listar o
+  próprio número como ocupado mandaria trocar um valor que já é válido.
+
+> ⚠️ **A edição não recusa máquina em uso** — a exclusão recusa. Trocar o MAC com sessão aberta desgarra a
+> estação até o Desktop reconectar com o endereço novo: é exatamente o efeito desejado quando o MAC estava
+> errado, e um estrago quando estava certo. Só quem opera sabe qual é o caso, então a tela **avisa** no
+> diálogo em vez de bloquear.
 
 > ⚠️ **Busca e paginação rodam no cliente.** A paginação é a do `DataTable` (10 por página, com o rodapé de
 > sempre), igual à de `/admin/rooms`. Quem não pagina é a **API**: `GET /computers/get-all` devolve o

@@ -191,8 +191,11 @@
 - [x] Excluir (`DELETE /computers/delete/:id`) — recusa com `400` se estiver em uso, e a tela repete o
       bloqueio com o motivo no tooltip. **Não é soft delete como a sala**: apaga o registro e, em cascata, o
       histórico de sessões e as impressões — por isso a confirmação exige digitar a descrição da máquina
-- ❌ Editar — **não existe na API**: não há `PATCH /computers/update/:id`. Corrigir um MAC digitado errado
-      significa excluir e recadastrar, levando o histórico junto
+- [x] Editar (`PATCH /computers/update/:id`) — diálogo aberto pelo botão da linha, já preenchido com a
+      máquina. É o que corrige um MAC errado sem passar pela exclusão, que levaria o histórico junto. A sala
+      atual entra no seletor mesmo inativa (senão o campo abriria vazio) e os números em uso desconsideram a
+      própria máquina. A API não recusa máquina em uso aqui, ao contrário do delete: a tela avisa do efeito
+      de trocar MAC ou sala com sessão aberta, mas não bloqueia
 
 ---
 

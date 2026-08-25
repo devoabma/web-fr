@@ -10,7 +10,9 @@ A `api-fr` já expunha as três rotas necessárias, todas `ADMIN`-only:
   **não pagina**.
 - `DELETE /computers/delete/:id` — remoção real, em cascata. Recusa com `400` a máquina `inUse`.
 
-O que não existe: `PATCH /computers/update/:id`. Não há como corrigir um cadastro — só refazer.
+> ⚠️ **Correção (2026-08-25):** esta seção afirmava que `PATCH /computers/update/:id` não existia. Era
+> falso — a rota sempre esteve lá, `ADMIN`-only e com corpo parcial. O engano veio de inferir o contrato a
+> partir do que o front já consumia. A edição foi entregue pela change `edicao-de-computadores`.
 
 ## Goals / Non-Goals
 
@@ -23,7 +25,8 @@ O que não existe: `PATCH /computers/update/:id`. Não há como corrigir um cada
 
 **Non-Goals**
 
-- Editar computador — a API não expõe a rota.
+- Editar computador (fica para `edicao-de-computadores`; a rota existe, ao contrário do que esta change
+  afirmou).
 - Alternar manutenção por esta tela; quem faz isso é a grade do painel.
 - Paginar ou filtrar no servidor.
 - Verificar se o MAC informado corresponde a uma máquina real.
@@ -110,10 +113,10 @@ request nenhum — não há risco de `401`.
 
 ## Risks / Trade-offs
 
-- **Não há edição, e o MAC errado deixa a máquina inoperante.** A estação aparece na grade mas nunca fica
-  online, e a liberação segue desabilitada — o funcionário não consegue usar aquela máquina de jeito nenhum.
-  A correção é excluir e recadastrar, levando o histórico junto. A change não tem como mitigar isso; depende
-  de `PATCH /computers/update/:id` na `api-fr`.
+- **Sem edição nesta change, o MAC errado deixa a máquina inoperante.** A estação aparece na grade mas
+  nunca fica online, e a liberação segue desabilitada — o funcionário não consegue usar aquela máquina de
+  jeito nenhum. Enquanto a edição não existiu no painel, a correção era excluir e recadastrar, levando o
+  histórico junto. Resolvido por `edicao-de-computadores`.
 - **Filtro em memória sobre o inventário inteiro.** A tabela pagina, mas a API manda tudo. Aceitável no
   tamanho atual; vira problema de transporte quando crescer.
 - **A confirmação por digitação é só de interface.** Ela protege do clique errado, não da chamada direta.
@@ -122,7 +125,8 @@ request nenhum — não há risco de `401`.
 
 ## Open Questions
 
-- A `api-fr` deveria expor `PATCH /computers/update/:id`, nem que fosse só para `description`?
+- ~~A `api-fr` deveria expor `PATCH /computers/update/:id`?~~ **Ela já expunha.** Ver
+  `edicao-de-computadores`.
 - A listagem administrativa deveria alternar manutenção, ou isso é sempre decisão de quem está no balcão?
 - `GET /computers/get-all` deveria paginar e aceitar busca por nome de sala, tirando o filtro do cliente?
 - A exclusão deveria virar inativação, como na sala, para preservar o histórico de sessões e impressões?

@@ -85,7 +85,8 @@
 
 ## 9. Próximos passos (fora desta change)
 
-- [ ] 9.1 Pedir `PATCH /computers/update/:id` à `api-fr` — hoje corrigir um MAC exige excluir o histórico
+- [x] 9.1 ~~Pedir `PATCH /computers/update/:id` à `api-fr`~~ — a rota já existia; esta change errou ao dizer
+      que não. Encapsulada por `edicao-de-computadores` em 2026-08-25
 - [ ] 9.2 Avaliar inativação no lugar da exclusão, para preservar sessões e impressões
 - [ ] 9.3 Paginar e buscar no servidor quando o inventário crescer
 - [ ] 9.4 Decidir se a listagem administrativa também alterna manutenção

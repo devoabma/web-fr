@@ -60,9 +60,11 @@ máquina `inUse`, para não derrubar a sessão de um advogado em silêncio.
   `src/utils/masks/mac-code.ts`, `src/utils/schemas/mac-code.ts`.
 - Alterado: `src/constants/query-keys.ts`, `src/app/(private)/panel/_components/releases-board.tsx`,
   `src/app/(private)/admin/rooms/_components/new-room.tsx`.
-- **A tela não edita computador.** A `api-fr` não expõe `update` para máquina: corrigir um MAC digitado
-  errado é excluir e cadastrar de novo — e a exclusão apaga o histórico junto. O erro de digitação custa
-  caro e não tem conserto barato.
+- **A tela não edita computador.** Corrigir um MAC digitado errado exige excluir e cadastrar de novo — e a
+  exclusão apaga o histórico junto.
+  > **Correção (2026-08-25):** esta change afirmava que a `api-fr` não expunha `update` para máquina. Era
+  > falso — `PATCH /computers/update/:id` sempre existiu. A afirmação nasceu de olhar só o que o front
+  > consumia, sem abrir o repositório da API. A edição foi entregue pela change `edicao-de-computadores`.
 - **A exclusão apaga histórico de verdade.** Diferente da sala, não há inativação. A confirmação por
   digitação é o único freio, e ele é de interface: qualquer chamada direta à API passa por cima.
 - **Busca e paginação rodam no cliente.** A paginação é a do `DataTable`, como em `/admin/rooms`. Quem não
