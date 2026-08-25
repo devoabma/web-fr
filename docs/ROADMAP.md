@@ -151,6 +151,12 @@
 - [x] Saldo andando sozinho na tela — o cálculo é do servidor, e o painel desconta os minutos decorridos
       desde a resposta (`useElapsedMinutes`). O polling de 30s saiu: revalidação na montagem, na volta de
       foco e depois de cada ação. Tempo real continua dependendo do item 8
+- [x] Versão do Desktop de cada estação na grade (`appVersion` / `appVersionReportedAt`, embutidos em
+      `GET /rooms/get-all` — sem requisição nova). A régua da defasagem é a **própria sala**, e não uma
+      versão oficial: o painel não sabe o que foi publicado, mas sabe o que as vizinhas rodam, e é assim que
+      a máquina que ficou para trás aparece sozinha em âmbar. Comparação numérica segmento a segmento —
+      alfabética marcaria a mais atualizada como a atrasada. `v—` quando a estação nunca informou, que não é
+      erro. O carimbo é do informe (a versão só viaja ao conectar), nunca "vista por último"
 
 ---
 

@@ -546,6 +546,43 @@ fecha sozinho e não precisa de `preventDefault`.
 desabilitaria a grade inteira a cada manutenção. Como a mutação carrega o `computerId` que recebeu,
 `variables` diz qual card está ocupado e só ele trava.
 
+#### Em que versão a estação está
+
+O Desktop informa a própria versão no `register` do WebSocket, a `api-fr` grava em `appVersion` /
+`appVersionReportedAt` (commit `b01add1`), e os dois campos vêm embutidos nos computadores de
+`GET /rooms/get-all` — **sem requisição nova**, de carona na resposta que a grade já busca. O número
+aparece abaixo da pílula de estado, em `tabular-nums`, para que os dígitos caiam na mesma coluna entre
+cartões vizinhos e dez máquinas virem uma lista conferível de relance.
+
+**A régua da defasagem é a própria sala**, não uma versão oficial. O painel não tem como saber qual release
+está publicada — não há rota que diga —, e cravar o número no front criaria uma constante que envelhece em
+silêncio e um dia acusaria o parque inteiro. Comparar com as vizinhas responde a pergunta que interessa:
+"alguma máquina desta sala está diferente das outras?". Pega o caso que ninguém enxerga sozinho — a
+atualização que falhou no meio, a estação desligada no dia da rodada, a que voltou para a versão anterior.
+O preço é assumido: sala inteira parada numa versão antiga não destaca ninguém, e sala de um computador só
+nunca destaca.
+
+> ⚠️ **A comparação é numérica, segmento a segmento — nunca alfabética.** `'1.0.10' < '1.0.7'` é verdadeiro
+> em ordem de texto: a comparação ingênua elegeria `1.0.7` como topo da sala e marcaria a máquina **mais
+> atualizada** como a atrasada, mandando o técnico ao computador errado. Segmento ausente ou não numérico
+> (um sufixo `-beta`) vale zero: o campo é texto livre do lado do cliente, e o pior desfecho aceitável é o
+> destaque não aparecer — destacar a máquina errada, não.
+
+> ⚠️ **`appVersionReportedAt` não é "vista por último".** A versão só viaja no `register`, isto é, a cada
+> conexão. Estação semanas no ar sem cair mantém um carimbo antigo estando perfeitamente saudável. Por isso
+> o tooltip diz "informada em", e quem responde quem está conectado agora continua sendo
+> `GET /computers/online/:roomId`.
+
+**`v—` não é erro, e por isso ocupa lugar em vez de sumir.** Ou a estação não conectou desde que a `api-fr`
+passou a guardar, ou roda um Desktop antigo que não manda o campo (a API ignora o envio ausente e não grava
+nada). Esconder a linha faria o cartão sem informação parecer um cartão sem problema, e a leitura de
+relance passaria a depender de perceber uma ausência — que ninguém percebe.
+
+O âmbar reaparece aqui, e o cartão já o usa para "offline". A sobreposição é aceita: uma estação pode estar
+muda **e** atrasada, são dois avisos legítimos sobre a mesma máquina, e o rótulo ao lado do ponto pulsante
+diz qual é qual. **Nada disso trava ação alguma** — máquina desatualizada continua servindo advogado, e
+travar a operação por causa de um número inventaria um problema maior que o observado.
+
 #### Estado da tela
 
 A sala escolhida vive na URL (`?sala=<roomId>`), então a tela recarrega e se compartilha sem perder o
