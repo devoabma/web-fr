@@ -17,6 +17,24 @@ export type ComputerProps = {
   inUse: boolean
   /** Data ISO de quando a máquina entrou em manutenção — `null` enquanto ela está em operação. */
   maintenance: string | null
+  /**
+   * Última versão do Desktop que a estação informou, como texto (`"1.0.7"`).
+   *
+   * `null` significa que ela nunca informou: ou não conectou desde que a api-fr passou a guardar,
+   * ou o envio está desligado na configuração local da máquina. Nenhum dos dois é erro.
+   *
+   * Tipado como `string` e não como união fechada de propósito — quem decide quais versões
+   * existem é o parque, não o painel.
+   */
+  appVersion: string | null
+  /**
+   * Data ISO de quando a estação **informou** a versão — não de quando esteve online.
+   *
+   * A versão só viaja no `register` do WebSocket, isto é, a cada conexão. Uma máquina que fica
+   * semanas no ar sem cair mantém um carimbo antigo enquanto está funcionando normalmente, então
+   * este campo nunca vale como "vista por último". Quem responde isso é `/computers/online`.
+   */
+  appVersionReportedAt: string | null
 }
 
 export type RoomProps = {

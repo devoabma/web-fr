@@ -47,7 +47,7 @@ export function ComputerCard({
   onPutIntoMaintenance,
   onTakeOutOfMaintenance,
 }: ComputerCardProps) {
-  const { name, description, macCode, status, maintenanceSince, session, isOnline } = computer
+  const { name, description, macCode, status, maintenanceSince, session, isOnline, version } = computer
 
   const isAvailable = status === 'available'
   const isInUse = status === 'in-use'
@@ -115,29 +115,68 @@ export function ComputerCard({
           </div>
         </div>
 
-        <span
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium text-[11px]',
-            isFree && 'border-green-600/25 bg-green-600/10 text-green-600',
-            isAvailableOffline && 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-            isInUse && 'border-rose-700/25 bg-rose-700/10 text-rose-700',
-            isInMaintenance && 'border-slate-500/25 bg-slate-500/10 text-slate-500'
-          )}
-        >
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <span
             className={cn(
-              'size-1.5 min-w-1.5 animate-pulse rounded-full',
-              isFree && 'bg-green-600',
-              isAvailableOffline && 'bg-amber-500',
-              isInUse && 'bg-rose-700',
-              isInMaintenance && 'bg-slate-500'
+              'flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium text-[11px]',
+              isFree && 'border-green-600/25 bg-green-600/10 text-green-600',
+              isAvailableOffline && 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+              isInUse && 'border-rose-700/25 bg-rose-700/10 text-rose-700',
+              isInMaintenance && 'border-slate-500/25 bg-slate-500/10 text-slate-500'
             )}
-          />
-          {isFree && 'Disponível'}
-          {isAvailableOffline && 'Offline'}
-          {isInUse && 'Em uso'}
-          {isInMaintenance && 'Manutenção'}
-        </span>
+          >
+            <span
+              className={cn(
+                'size-1.5 min-w-1.5 animate-pulse rounded-full',
+                isFree && 'bg-green-600',
+                isAvailableOffline && 'bg-amber-500',
+                isInUse && 'bg-rose-700',
+                isInMaintenance && 'bg-slate-500'
+              )}
+            />
+            {isFree && 'Disponível'}
+            {isAvailableOffline && 'Offline'}
+            {isInUse && 'Em uso'}
+            {isInMaintenance && 'Manutenção'}
+          </span>
+
+          {/* Versão do Desktop instalado na estação. Fica aqui, e não dentro do tooltip do MAC, porque
+              o que se quer é varrer a grade e achar a máquina destoante — informação que só aparece no
+              hover não responde isso. É `tabular-nums` para os números alinharem entre os cards. */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  className={cn(
+                    'cursor-default font-medium text-[11px] tabular-nums',
+                    version ? 'text-muted-foreground' : 'text-muted-foreground/60',
+                    // Âmbar aparece de novo aqui, e o card já o usa para "offline". A sobreposição é
+                    // aceita: são dois avisos legítimos sobre a mesma máquina, cada um no seu lugar,
+                    // e o rótulo ao lado do ponto diz qual é qual.
+                    version?.isOutdated && 'text-amber-600 dark:text-amber-400'
+                  )}
+                />
+              }
+            >
+              {version ? `v${version.number}` : 'v—'}
+            </TooltipTrigger>
+
+            <TooltipContent>
+              {version ? (
+                <>
+                  {version.isOutdated ? 'Atrás de outras estações desta sala' : 'Versão do aplicativo nesta estação'}
+                  {/* O carimbo é de quando ela se apresentou, não de quando esteve online: a versão só
+                      viaja na conexão, então máquina que não cai há semanas mostra data antiga estando no ar. */}
+                  {version.reportedAt && ` · informada em ${formatDateTime(version.reportedAt)}`}
+                </>
+              ) : (
+                // Não é erro: ou a estação não conectou desde que a api-fr passou a guardar, ou o envio
+                // está desligado na configuração dela. Dizer "sem informação" é mais honesto que sumir.
+                'Esta estação nunca informou a versão'
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col gap-2.5 px-4 pb-4">
