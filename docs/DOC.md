@@ -902,9 +902,16 @@ Segunda área administrativa. A tela abre com a tabela já montada — diferente
 só com o formulário e ficou um ciclo inteiro sem mostrar ao administrador o que ele acabou de cadastrar.
 
 O computador é o objeto que o **Desktop** conhece. Ele não pede liberação por número nem por descrição: pede
-pelo `macCode`. Um MAC digitado errado não quebra tela nenhuma — a estação simplesmente nunca aparece como
-online no painel, e o balcão passa a atender uma máquina que, para o sistema, não existe. É o campo mais
-frágil do cadastro e o que menos avisa quando está errado.
+pelo `macCode`. Um MAC digitado errado não quebra tela nenhuma — e é exatamente esse o problema. A máquina
+aparece normalmente na grade do painel, porque a grade vem de `/rooms/get-all` e essa rota não tem como saber
+se o endereço confere. O que nunca acontece é a conexão: o Desktop daquela máquina entra no WebSocket com o
+MAC **real**, que não corresponde a registro nenhum, e por isso ela jamais aparece em
+`GET /computers/online/:roomId`. A grade a marca como offline e o botão **Liberar fica desabilitado**
+(`computer-card.tsx`).
+
+Ou seja: a estação nasce inoperante e continua assim até alguém desconfiar do cadastro. O funcionário não
+"atende uma máquina fantasma" — ele vê a máquina, tenta liberar e não consegue, sem que nada na tela aponte
+para o MAC. É o campo mais frágil desta tela e o que menos avisa quando está errado.
 
 **Quatro campos, duas regras do servidor:**
 
@@ -973,10 +980,12 @@ tooltip é justamente o que explica por que a ação está fora do ar.
 > digitado errado significa excluir e recadastrar — apagando o histórico junto. O erro de digitação custa
 > caro e não tem conserto barato.
 
-> ⚠️ **A busca roda no cliente e não há paginação.** `GET /computers/get-all` aceita `roomId` e
-> `description`, mas não filtra por **nome** de sala e não pagina. Como o balconista procura das duas formas
-> ("todas as máquinas da Sala 2" e "aquela COMPUTADOR 03"), a lista inteira vem num request e o filtro é
-> aplicado em memória. Com inventário grande, isso pesa.
+> ⚠️ **Busca e paginação rodam no cliente.** A paginação é a do `DataTable` (10 por página, com o rodapé de
+> sempre), igual à de `/admin/rooms`. Quem não pagina é a **API**: `GET /computers/get-all` devolve o
+> inventário inteiro e aceita só `roomId` e `description` como filtro, sem cobrir **nome** de sala. Como o
+> balconista procura das duas formas ("todas as máquinas da Sala 2" e "aquela COMPUTADOR 03"), a lista vem
+> num request só e o filtro é aplicado em memória. Com inventário grande, o que pesa é o transporte, não a
+> tabela.
 
 > ⚠️ **A colisão de `number` continua possível.** A sugestão do próximo livre reduz a chance, mas duas abas
 > cadastrando na mesma sala ainda colidem — quem recusa é o `400`.

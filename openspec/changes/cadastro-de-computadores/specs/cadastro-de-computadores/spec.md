@@ -151,8 +151,9 @@ O sistema MUST recusar, antes do envio, endereço que não tenha exatamente doze
 mensagem MUST dizer o que se espera.
 
 **Motivação:** é pelo endereço físico que o Desktop pede a liberação. Um endereço errado não quebra tela
-nenhuma — a estação simplesmente nunca aparece, e o balcão atende uma máquina que, para o sistema, não
-existe.
+nenhuma: a máquina continua aparecendo na grade do painel, mas nunca é reconhecida como conectada — e a
+liberação fica indisponível nela para sempre. A máquina nasce inoperante sem que nada aponte o cadastro
+como causa.
 
 #### Scenario: Agrupamento durante a digitação
 

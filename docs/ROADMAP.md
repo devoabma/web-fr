@@ -181,8 +181,9 @@
 
 ### Computadores
 - [x] Listar (`GET /computers/get-all`) — tabela com número (`ESTAÇÃO-01`), descrição, sala vinculada, MAC,
-      situação e data de criação. A busca cobre **sala ou descrição** e roda no cliente: a rota filtra por
-      `roomId` e `description`, mas não por nome de sala, e não pagina — a lista inteira já vem num request
+      situação e data de criação, com busca e paginação no cliente pelo `DataTable`, como em Salas. A busca
+      cobre **sala ou descrição** porque a rota filtra por `roomId` e `description`, mas não por nome de
+      sala, e devolve o inventário inteiro de uma vez
 - [x] Cadastrar (`POST /computers/create`) — painel lateral com sala (só as ativas), número, descrição e MAC.
       Trocar de sala sugere o próximo número livre e lista os já em uso, porque o `number` é único por sala e
       a colisão só voltaria como `400`. O MAC ganha máscara na digitação e aceita colagem com `:`, `.` ou

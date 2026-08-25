@@ -5,9 +5,12 @@ sidebar já apontava para ela desde `secao-administracao-por-papel` — o link c
 é sala vazia: o painel de operação abre a grade sem um único cartão e não há o que liberar.
 
 O computador é o objeto que o Desktop conhece. Ele não pede liberação por número nem por descrição — pede
-pelo `macCode`. Um MAC digitado errado não quebra tela nenhuma: a máquina simplesmente nunca aparece no
-painel, e o balcão passa a atender uma estação que, para o sistema, não existe. É o campo mais frágil do
-cadastro e o que menos avisa quando está errado.
+pelo `macCode`. Um MAC digitado errado não quebra tela nenhuma: a máquina **aparece** na grade do painel,
+porque a grade vem de `/rooms/get-all`, que não tem como saber se o endereço confere. O que nunca acontece é
+a conexão — o Desktop entra no WebSocket com o MAC real, que não bate com registro nenhum, e a estação jamais
+aparece em `GET /computers/online/:roomId`. A grade a marca como offline e desabilita a liberação: a máquina
+nasce inoperante e continua assim até alguém desconfiar do cadastro. É o campo mais frágil do cadastro e o
+que menos avisa quando está errado.
 
 Do lado da `api-fr`, `POST /computers/create` e `DELETE /computers/delete/:id` já existiam, ambos
 `ADMIN`-only. Duas regras do servidor moldam esta tela: o `number` é único **por sala** (recusa com `400`
@@ -62,15 +65,17 @@ máquina `inUse`, para não derrubar a sessão de um advogado em silêncio.
   caro e não tem conserto barato.
 - **A exclusão apaga histórico de verdade.** Diferente da sala, não há inativação. A confirmação por
   digitação é o único freio, e ele é de interface: qualquer chamada direta à API passa por cima.
-- **A listagem não pagina e não filtra no servidor.** `GET /computers/get-all` aceita `roomId` e
-  `description`, mas não filtra por nome de sala nem pagina. Como a busca da tela é por sala *ou*
-  descrição, a lista inteira vem num request e o filtro roda no cliente. Com inventário grande, isso pesa.
+- **Busca e paginação rodam no cliente.** A paginação é a do `DataTable`, como em `/admin/rooms`. Quem não
+  pagina é a API: `GET /computers/get-all` aceita `roomId` e `description`, mas não filtra por nome de sala
+  e devolve o inventário inteiro. Como a busca da tela é por sala *ou* descrição, a lista vem num request só
+  e o filtro roda em memória. Com inventário grande, o que pesa é o transporte.
 - **O `number` duplicado só é barrado pela API.** A sugestão do próximo livre e a lista de números em uso
   reduzem a chance, mas duas abas cadastrando na mesma sala ainda colidem — quem recusa é o `400`.
 - **A sugestão de número é `maior + 1`, não o primeiro buraco.** Sala com as máquinas 1, 2 e 5 recebe a
   sugestão 6, não 3. É previsível, mas deixa lacunas.
-- **O MAC não é verificado contra a máquina real.** Nada na tela sabe se aquele endereço existe. O único
-  sinal de MAC errado é a estação nunca aparecer como online no painel.
+- **O MAC não é verificado contra a máquina real.** Nada na tela sabe se aquele endereço existe. O sinal de
+  MAC errado é indireto e mudo: a estação fica permanentemente offline na grade, com a liberação
+  desabilitada, e nada aponta o cadastro como causa.
 - **Só o painel de operação alterna manutenção.** A listagem administrativa mostra o estado, mas não o muda.
 - O corte por papel já estava resolvido: o `proxy.ts` cobre `/admin/*` e a `api-fr` é `ADMIN`-only nas três
   rotas. Esta change não mexe em autorização.

@@ -17,7 +17,7 @@ O que não existe: `PATCH /computers/update/:id`. Não há como corrigir um cada
 **Goals**
 
 - Cadastrar, listar e excluir máquinas pela interface.
-- Reduzir a chance do erro de digitação no MAC, que é silencioso.
+- Reduzir a chance do erro de digitação no MAC, que deixa a estação inoperante sem dizer por quê.
 - Evitar a colisão de `number` antes de a API precisar recusar.
 - Deixar a exclusão difícil o bastante para o clique errado não custar o histórico.
 
@@ -40,9 +40,12 @@ de `rooms-table.tsx` — busca acima, `DataTable` abaixo, aviso de falha no luga
 
 O balconista procura de duas formas: "todas as máquinas da Sala 2" e "aquela COMPUTADOR 03". A rota da API
 filtra por `roomId` (identificador, não nome) e por `description` — nenhum dos dois cobre o primeiro caso, e
-usar os dois exigiria dois requests. Como a rota também não pagina, a lista inteira já vem de qualquer jeito:
-filtrar no cliente é um request só e nenhuma ida ao servidor por tecla. O trade-off está registrado no
-`Impact` — inventário grande pesa.
+usar os dois exigiria dois requests. Como a rota também não pagina, o inventário inteiro já vem de qualquer
+jeito: filtrar no cliente é um request só e nenhuma ida ao servidor por tecla.
+
+A paginação da tela é a do `DataTable`, herdada de `/admin/rooms` — a primitiva já resolve isso e não há
+nada a decidir aqui. O que fica em aberto é só o transporte: o dia em que o inventário crescer, quem precisa
+paginar é a API, não a tabela.
 
 ### Manutenção vence `inUse` na coluna de situação
 
@@ -107,10 +110,12 @@ request nenhum — não há risco de `401`.
 
 ## Risks / Trade-offs
 
-- **Não há edição.** MAC digitado errado se corrige excluindo e recadastrando — e a exclusão leva o
-  histórico junto. A change não tem como mitigar isso; depende de `PATCH /computers/update/:id` na `api-fr`.
-- **Filtro no cliente sem paginação.** Aceitável no tamanho atual do inventário; vira problema conhecido
-  quando crescer.
+- **Não há edição, e o MAC errado deixa a máquina inoperante.** A estação aparece na grade mas nunca fica
+  online, e a liberação segue desabilitada — o funcionário não consegue usar aquela máquina de jeito nenhum.
+  A correção é excluir e recadastrar, levando o histórico junto. A change não tem como mitigar isso; depende
+  de `PATCH /computers/update/:id` na `api-fr`.
+- **Filtro em memória sobre o inventário inteiro.** A tabela pagina, mas a API manda tudo. Aceitável no
+  tamanho atual; vira problema de transporte quando crescer.
 - **A confirmação por digitação é só de interface.** Ela protege do clique errado, não da chamada direta.
 - **A colisão de `number` continua possível** entre duas abas ou dois administradores simultâneos.
 - **Rota administrativa nova sem cobertura de teste automatizado**, como todas as outras do painel.
