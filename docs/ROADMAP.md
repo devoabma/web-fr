@@ -180,10 +180,18 @@
       pelo botão ao lado
 
 ### Computadores
-- [ ] Listar com filtros por sala e descrição (`GET /computers/get-all`) — **sem paginação na API**
-- [ ] Cadastrar (`POST /computers/create`)
-- [ ] Editar (`PATCH /computers/update/:id`)
-- [ ] Excluir (`DELETE /computers/delete/:id`) — recusa com `400` se estiver em uso
+- [x] Listar (`GET /computers/get-all`) — tabela com número (`ESTAÇÃO-01`), descrição, sala vinculada, MAC,
+      situação e data de criação. A busca cobre **sala ou descrição** e roda no cliente: a rota filtra por
+      `roomId` e `description`, mas não por nome de sala, e não pagina — a lista inteira já vem num request
+- [x] Cadastrar (`POST /computers/create`) — painel lateral com sala (só as ativas), número, descrição e MAC.
+      Trocar de sala sugere o próximo número livre e lista os já em uso, porque o `number` é único por sala e
+      a colisão só voltaria como `400`. O MAC ganha máscara na digitação e aceita colagem com `:`, `.` ou
+      espaço, normalizando tudo para o mesmo formato
+- [x] Excluir (`DELETE /computers/delete/:id`) — recusa com `400` se estiver em uso, e a tela repete o
+      bloqueio com o motivo no tooltip. **Não é soft delete como a sala**: apaga o registro e, em cascata, o
+      histórico de sessões e as impressões — por isso a confirmação exige digitar a descrição da máquina
+- ❌ Editar — **não existe na API**: não há `PATCH /computers/update/:id`. Corrigir um MAC digitado errado
+      significa excluir e recadastrar, levando o histórico junto
 
 ---
 

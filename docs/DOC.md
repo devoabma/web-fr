@@ -72,6 +72,7 @@ src/
 │       ├── panel/                 # /panel — sala e operação das máquinas (page + _components + _data)
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
+│       ├── admin/computers/       # /admin/computers — cadastro, listagem e exclusão de máquina (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -84,7 +85,7 @@ src/
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout e troca de senha
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
-│   ├── computers/                 # estações conectadas e entrada/saída de manutenção
+│   ├── computers/                 # get-all, create, delete, estações conectadas e entrada/saída de manutenção
 │   └── lawyers/                   # sessões: listar, liberar e encerrar
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
@@ -92,8 +93,8 @@ src/
 ├── styles/globals.css             # tokens do tema (:root e .dark)
 ├── utils/
 │   ├── index.ts                   # helpers sem dependência (getInitials, formatDuration, formatMinutes)
-│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação, slug)
-│   └── schemas/                   # schemas Zod reutilizáveis (CPF)
+│   ├── masks/                     # máscaras de entrada (CPF, data de nascimento, código de recuperação, slug, MAC)
+│   └── schemas/                   # schemas Zod reutilizáveis (CPF, MAC)
 └── lib/
     ├── utils.ts                   # cn() — clsx + tailwind-merge
     ├── axios.ts                   # instância única, baseURL por env, withCredentials
@@ -107,7 +108,7 @@ src/
 - Um arquivo por seção em `src/components/app/`, kebab-case, **export nomeado**.
 - Componentes de uma rota específica ficam em `_components/` dentro da própria rota.
 - Grupos de rota: `(public)` para o que não exige sessão, `(private)` para o painel. Parênteses não entram na URL.
-- **URLs em inglês, interface em português** — `/panel`, `/auth/sign-in`, `/admin/rooms`; os rótulos que o
+- **URLs em inglês, interface em português** — `/panel`, `/auth/sign-in`, `/admin/computers`; os rótulos que o
   usuário lê são "Painel", "Salas". Decidir o idioma por rota custa renomeação e redirecionamento depois.
 - **Só `src/app/layout.tsx` declara `<html>`, `<body>`, a fonte e o `globals.css`.** Layout de grupo de rota
   é layout aninhado: redeclarar o documento renderiza um HTML dentro do outro e duplica os providers — dois
@@ -252,6 +253,10 @@ Confirmar antes de planejar as telas correspondentes.
 - ~~**Liberar computador manualmente pelo funcionário**~~ — **falso alarme, corrigido em 2026-08-19.**
   `POST /lawyers/release-computer` sempre existiu, é **pública** e identifica a máquina pelo `macCode`. Foi
   desenhada para o Desktop e serve o painel sem alteração alguma.
+- **Editar computador não existe** — há `create`, `get-all` e `delete`, mas nenhum
+  `PATCH /computers/update/:id`. Como a exclusão é definitiva e em cascata (leva sessões e impressões),
+  corrigir um `macCode` digitado errado custa o histórico da máquina. Confirmado em **2026-08-24**, ao
+  construir `/admin/computers`.
 - **Baixar arquivo da fila de impressão** — a listagem existe, o download não.
 - **Relatórios** — nada implementado.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
@@ -274,8 +279,9 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
-| `/admin/computers`, `/admin/employees` | — | **linkadas pela sidebar, não existem**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
+| `/admin/employees` | — | **linkada pela sidebar, não existe**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -743,7 +749,7 @@ declara o próprio título.
 
 ### Salas de liberação (`/admin/rooms`)
 
-Primeira área administrativa a existir de fato — as outras quatro ainda caem na 404. A tela tem o cabeçalho
+Primeira área administrativa a existir de fato — hoje só `/admin/employees` ainda cai na 404. A tela tem o cabeçalho
 da área, um painel lateral (`Sheet`) com o formulário de nova sala e a **tabela das salas cadastradas**, com
 busca por nome, paginação, edição em diálogo e a alternância entre ativa e inativa. O ciclo da sala está
 fechado: criar, ver, corrigir e tirar de operação sem sair da tela.
@@ -887,6 +893,93 @@ O rótulo do cartão da grade (`panel/_data/computer-view.ts`) é lido em voz al
 estação 3". `PC` é abreviação de manual técnico. Mudou o vocabulário, não o dado: o número continua vindo de
 `computer.number`. A ilustração da landing (`dashboard-preview.tsx`) ainda mostra `PC-01`; é peça de
 marketing, com nomes de sala fictícios, mas agora diverge do produto.
+
+---
+
+### Computadores de liberação (`/admin/computers`)
+
+Segunda área administrativa. A tela abre com a tabela já montada — diferente de `/admin/rooms`, que nasceu
+só com o formulário e ficou um ciclo inteiro sem mostrar ao administrador o que ele acabou de cadastrar.
+
+O computador é o objeto que o **Desktop** conhece. Ele não pede liberação por número nem por descrição: pede
+pelo `macCode`. Um MAC digitado errado não quebra tela nenhuma — a estação simplesmente nunca aparece como
+online no painel, e o balcão passa a atender uma máquina que, para o sistema, não existe. É o campo mais
+frágil do cadastro e o que menos avisa quando está errado.
+
+**Quatro campos, duas regras do servidor:**
+
+| Campo | Validação do front | Na `api-fr` |
+| --- | --- | --- |
+| `roomId` | `cuid2`; só salas **ativas** no seletor | obrigatório |
+| `number` | inteiro ≥ 1, sugerido como `maior + 1` da sala | **único por sala** — colisão volta `400` |
+| `description` | 1 a 50 caracteres | gravado em **maiúsculas** |
+| `macCode` | 12 dígitos hexadecimais, qualquer separador | **único** — colisão volta `400` |
+
+#### Máscara e schema fazem coisas diferentes
+
+`utils/masks/mac-code.ts` age **a cada tecla**: descarta o que não é hexadecimal, corta em 12 dígitos, sobe
+para maiúscula e agrupa de dois em dois com hífen. É o que mantém o campo legível durante a digitação e o que
+impede o dedo errado de entrar. O `maxLength={17}` do campo é 12 dígitos mais 5 hífens.
+
+`utils/schemas/mac-code.ts` age **no envio** e resolve outro problema: MAC é escrito de várias formas por aí
+— `00:1A:2B:3C:4D:5E`, `001a.2b3c.4d5e`, com espaço, sem nada. Um endereço colado de um inventário externo
+não pode ser recusado por causa do separador. O schema normaliza para os 12 hexadecimais, valida, e só então
+reaplica o formato com hífen que a API grava. Colar e digitar chegam ao mesmo lugar.
+
+#### O número é único por sala, então a sala escolhe o número
+
+`POST /computers/create` recusa com `400` quando o `number` repete **dentro da mesma sala** — e o
+administrador não tem como saber de cabeça quais números aquela sala já usou. Trocar a sala no seletor
+preenche o campo com `maior + 1` e lista abaixo os números em uso.
+
+É `maior + 1` e não o primeiro buraco de propósito: quem cadastra a quinta máquina espera o 5, não o 3 que
+sobrou de uma exclusão. A numeração fica esparsa; o comportamento fica previsível.
+
+> O `setValue` vai com `shouldValidate`. Sem isso, a mensagem de erro de um envio anterior ficava na tela
+> embaixo do campo que a troca de sala acabou de preencher com um valor válido.
+
+#### Só sala ativa entra no seletor
+
+Sala inativa não recebe liberação. Cadastrar máquina nela é criar inventário morto — some do painel e o
+administrador só descobre depois. O seletor filtra por `inactive === null`; não havendo nenhuma sala ativa, o
+seletor e o botão de envio caem juntos, com o motivo abaixo do campo em vez de um formulário que não vai a
+lugar nenhum.
+
+#### Manutenção vence "em uso" na coluna de situação
+
+Os dois estados são independentes no banco: uma máquina pode ter `maintenance` preenchido e `inUse` ainda
+`true` de uma sessão anterior. Mostrar "Em uso" nesse caso manda o balconista tentar encerrar uma sessão que
+não está de pé. A ordem é: **manutenção → em uso → disponível**.
+
+> A listagem **mostra** a manutenção, mas não a alterna. Quem faz isso é a grade do painel — e o
+> `refreshBoard` passou a invalidar `queryKeys.getComputers()` para as duas telas não divergirem. Como o
+> painel é operado por `MEMBER` e `/computers/get-all` é `ADMIN`-only, invalidar uma query que não está
+> montada não dispara request nenhum: não há risco de `401`.
+
+#### A exclusão não é a da sala
+
+Sala tem inativação (soft delete). Computador **não**: `DELETE /computers/delete/:id` apaga o registro e leva
+junto, em cascata, o histórico de sessões (`computer_sessions`) e as impressões (`printers`) daquela máquina.
+Um clique numa linha de tabela é barato demais para isso — daí a confirmação por digitação da descrição, no
+lugar do "tem certeza?". A conferência ignora caixa e espaço nas pontas: o atrito serve para o administrador
+reler o nome da máquina, não para brigar com o teclado. Fechar o diálogo limpa o campo, senão reabrir já
+viria confirmado.
+
+Máquina **em uso** tem a exclusão bloqueada — a API recusa com `400`, porque a sessão do advogado precisa ser
+encerrada antes. O botão usa `aria-disabled`, não `disabled`: botão desabilitado não dispara `hover`, e o
+tooltip é justamente o que explica por que a ação está fora do ar.
+
+> ⚠️ **Não existe edição de computador.** A `api-fr` não expõe `PATCH /computers/update/:id`. Corrigir um MAC
+> digitado errado significa excluir e recadastrar — apagando o histórico junto. O erro de digitação custa
+> caro e não tem conserto barato.
+
+> ⚠️ **A busca roda no cliente e não há paginação.** `GET /computers/get-all` aceita `roomId` e
+> `description`, mas não filtra por **nome** de sala e não pagina. Como o balconista procura das duas formas
+> ("todas as máquinas da Sala 2" e "aquela COMPUTADOR 03"), a lista inteira vem num request e o filtro é
+> aplicado em memória. Com inventário grande, isso pesa.
+
+> ⚠️ **A colisão de `number` continua possível.** A sugestão do próximo livre reduz a chance, mas duas abas
+> cadastrando na mesma sala ainda colidem — quem recusa é o `400`.
 
 ---
 

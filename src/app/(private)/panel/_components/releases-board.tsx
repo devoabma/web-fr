@@ -148,6 +148,7 @@ export function ReleasesBoard() {
       queryClient.invalidateQueries({ queryKey: queryKeys.getRooms() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.getReleases(selectedRoomId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.getOnlineComputers(selectedRoomId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.getComputers() }),
     ])
   }
 
@@ -307,12 +308,7 @@ export function ReleasesBoard() {
     )
   }
 
-  const computers = buildComputerViews(
-    selectedRoom.computers,
-    releasesData?.releases ?? [],
-    elapsedMinutes,
-    onlineComputerIds
-  )
+  const computers = buildComputerViews(selectedRoom.computers, releasesData?.releases ?? [], elapsedMinutes, onlineComputerIds)
   const totalComputers = computers.length
 
   return (

@@ -94,7 +94,7 @@ export function NewRoom() {
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
-        <PlusIcon data-icon="inline-start" /> Adicionar Sala
+        <PlusIcon data-icon="inline-start" /> Adicionar
       </SheetTrigger>
 
       <SheetContent className="sm:max-w-md">
