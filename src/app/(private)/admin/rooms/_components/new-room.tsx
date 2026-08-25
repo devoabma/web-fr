@@ -3,14 +3,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2Icon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
-import { useWatch } from 'react-hook-form'
+import { Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
 import { queryKeys } from '@/constants/query-keys'
+import { type Uf, UF_NAMES, UFS } from '@/constants/ufs'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import { createRoom } from '@/server/rooms/create'
 import { formatDuration } from '@/utils'
@@ -63,10 +65,11 @@ export function NewRoom() {
     closeSheet()
   }
 
-  async function handleCreateRoom({ name, standardTime, description }: NewRoomFormType) {
+  async function handleCreateRoom({ name, uf, standardTime, description }: NewRoomFormType) {
     try {
       await createRoomMutation({
         name,
+        uf,
         standardTime,
         description: description || undefined,
       })
@@ -74,7 +77,7 @@ export function NewRoom() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.getRooms() })
 
       toast.success(`Sala ${name} cadastrada.`, {
-        description: `${formatDuration(standardTime)} de cota por advogado.`,
+        description: `${uf} · ${formatDuration(standardTime)} de cota por advogado.`,
       })
 
       closeSheet()
@@ -124,6 +127,55 @@ export function NewRoom() {
                 <FieldError errors={[errors.name]} />
               ) : (
                 slugPreview && <FieldDescription>Identificador: {slugPreview}</FieldDescription>
+              )}
+            </Field>
+
+            <Field data-invalid={!!errors.uf}>
+              <FieldLabel htmlFor="uf">Estado</FieldLabel>
+
+              {/* Lista fechada de propósito. Antes disso a sigla era digitada à mão no instalador do
+                  Desktop, e um "MT" no lugar de "MA" nunca dava erro — a máquina só sumia das
+                  publicações de versão do estado dela. */}
+              <Controller
+                control={control}
+                name="uf"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(value: Uf | null) => value && field.onChange(value)}>
+                    <SelectTrigger id="uf" ref={field.ref} aria-invalid={!!errors.uf} className="h-10 w-full">
+                      <SelectValue>
+                        {(value: Uf | null) =>
+                          value ? (
+                            <span className="flex items-center gap-2">
+                              <span className="font-medium">{value}</span>
+
+                              <span className="text-muted-foreground text-sm">{UF_NAMES[value]}</span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Selecione o estado</span>
+                          )
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+
+                    <SelectContent className="max-h-72">
+                      {UFS.map(uf => (
+                        <SelectItem key={uf} value={uf} className="py-2">
+                          <span className="w-7 shrink-0 font-medium">{uf}</span>
+
+                          <span className="text-muted-foreground text-xs">{UF_NAMES[uf]}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+
+              {errors.uf ? (
+                <FieldError errors={[errors.uf]} />
+              ) : (
+                <FieldDescription>
+                  Define de qual estado as estações desta sala recebem as atualizações do Desktop.
+                </FieldDescription>
               )}
             </Field>
 

@@ -1,3 +1,4 @@
+import type { Uf } from '@/constants/ufs'
 import { API } from '@/lib/axios'
 
 type EmployeeRoomProps = {
@@ -21,6 +22,14 @@ export type ComputerProps = {
 export type RoomProps = {
   id: string
   name: string
+  /**
+   * Estado da sala, sempre em duas letras maiúsculas. Nunca chega nulo nem vazio: a coluna é
+   * NOT NULL na api-fr e as salas que existiam antes da migração nasceram em 'MA'.
+   *
+   * Tipado como união fechada (e não `string`) porque toda escrita passa pelo enum das 27 UFs no
+   * servidor — qualquer outro valor seria defeito de dado, não um formato que o painel deva prever.
+   */
+  uf: Uf
   standardTime: number
   description: string | null
   /** Data ISO da desativação da sala — `null` enquanto ela está ativa. */

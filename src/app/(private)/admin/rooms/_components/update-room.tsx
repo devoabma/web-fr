@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2Icon, SaveIcon, SquarePen } from 'lucide-react'
 import { useState } from 'react'
-import { useWatch } from 'react-hook-form'
+import { Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,9 +17,11 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { queryKeys } from '@/constants/query-keys'
+import { type Uf, UF_NAMES, UFS } from '@/constants/ufs'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import type { RoomProps } from '@/server/rooms/get-all'
 import { updateRoom } from '@/server/rooms/update'
@@ -38,6 +40,7 @@ export function UpdateRoom({ room }: UpdateRoomProps) {
 
   const roomFormValues: UpdateRoomFormType = {
     name: room.name,
+    uf: room.uf,
     standardTime: room.standardTime,
     description: room.description ?? '',
   }
@@ -56,11 +59,14 @@ export function UpdateRoom({ room }: UpdateRoomProps) {
   })
 
   const name = useWatch({ control, name: 'name' })
+  const uf = useWatch({ control, name: 'uf' })
   const standardTime = useWatch({ control, name: 'standardTime' })
 
   const standardTimeHint = formatDuration(standardTime)
 
   const slugPreview = maskSlug(name)
+
+  const isChangingUf = uf !== room.uf
 
   function handleOpenChange(value: boolean) {
     if (value) {
@@ -75,11 +81,14 @@ export function UpdateRoom({ room }: UpdateRoomProps) {
     setOpen(false)
   }
 
-  async function handleUpdateRoom({ name, standardTime, description }: UpdateRoomFormType) {
+  async function handleUpdateRoom({ name, uf, standardTime, description }: UpdateRoomFormType) {
     try {
       await updateRoomMutation({
         roomId: room.id,
         name,
+        // Só viaja quando muda: no PATCH a UF não tem padrão, e campo ausente é o que diz
+        // "não mexe" — reenviar a mesma sigla a cada edição de nome seria escrita à toa.
+        ...(uf !== room.uf && { uf }),
         standardTime,
         description: description || null,
       })
@@ -87,7 +96,7 @@ export function UpdateRoom({ room }: UpdateRoomProps) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.getRooms() })
 
       toast.success('Sala atualizada com sucesso.', {
-        description: `${formatDuration(standardTime)} de cota por advogado.`,
+        description: `${uf} · ${formatDuration(standardTime)} de cota por advogado.`,
       })
 
       setOpen(false)
@@ -151,6 +160,58 @@ export function UpdateRoom({ room }: UpdateRoomProps) {
                   <FieldError errors={[errors.name]} />
                 ) : (
                   slugPreview && <FieldDescription>Identificador: {slugPreview}</FieldDescription>
+                )}
+              </Field>
+
+              <Field data-invalid={!!errors.uf}>
+                <FieldLabel htmlFor="update-room-uf">Estado</FieldLabel>
+
+                <Controller
+                  control={control}
+                  name="uf"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={(value: Uf | null) => value && field.onChange(value)}>
+                      <SelectTrigger id="update-room-uf" ref={field.ref} aria-invalid={!!errors.uf} className="h-10 w-full">
+                        <SelectValue>
+                          {(value: Uf | null) =>
+                            value ? (
+                              <span className="flex items-center gap-2">
+                                <span className="font-medium">{value}</span>
+
+                                <span className="text-muted-foreground text-sm">{UF_NAMES[value]}</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Selecione o estado</span>
+                            )
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+
+                      <SelectContent className="max-h-72">
+                        {UFS.map(uf => (
+                          <SelectItem key={uf} value={uf} className="py-2">
+                            <span className="w-7 shrink-0 font-medium">{uf}</span>
+
+                            <span className="text-muted-foreground text-xs">{UF_NAMES[uf]}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+
+                {/* A troca não é instantânea: o Desktop só descobre a UF nova no próximo registro do
+                    canal WebSocket, e é ela que ele grava em disco para decidir se entra na publicação
+                    de versão do estado. Sem este aviso, a mudança pareceria já valer para as máquinas ligadas. */}
+                {errors.uf ? (
+                  <FieldError errors={[errors.uf]} />
+                ) : (
+                  isChangingUf && (
+                    <FieldDescription>
+                      As estações desta sala passarão a receber as atualizações de {UF_NAMES[uf]} ({uf}) na próxima vez que
+                      conectarem.
+                    </FieldDescription>
+                  )
                 )}
               </Field>
 

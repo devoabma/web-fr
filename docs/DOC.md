@@ -81,7 +81,9 @@ src/
 │   │   └── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
 │   └── ui/                        # primitivas shadcn/base-ui
 │       └── data-table/            # tabela reusável (TanStack v9): features, rodapé de paginação
-├── constants/query-keys.ts        # chaves do React Query, centralizadas
+├── constants/
+│   ├── query-keys.ts              # chaves do React Query, centralizadas
+│   └── ufs.ts                     # as 27 UFs, espelho da lista fechada da api-fr
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout e troca de senha
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
@@ -753,11 +755,12 @@ fechado: criar, ver, corrigir e tirar de operação sem sair da tela.
 Sala é a raiz do modelo: computador pertence a uma sala, funcionário é vinculado a salas, sessão de advogado
 acontece dentro de uma sala. Sem esta tela, todo ambiente novo começava por um `INSERT` na mão.
 
-**Três campos, uma regra de negócio:**
+**Quatro campos, duas regras de negócio:**
 
 | Campo | Validação do front | Na `api-fr` |
 | --- | --- | --- |
 | `name` | 3 a 60 caracteres | obrigatório; gravado em **maiúsculas** |
+| `uf` | uma das 27 siglas, por `<Select>` | opcional no `POST` com default `'MA'`; opcional **sem** default no `PATCH` |
 | `standardTime` | inteiro de **15 a 480 minutos** | opcional; qualquer inteiro positivo |
 | `description` | até 200 caracteres | opcional; em branco vira `undefined`, não string vazia |
 
@@ -765,6 +768,48 @@ O `standardTime` **é a cota diária** de cada advogado naquela sala. Erro de di
 nenhuma — muda em silêncio quanto tempo cada advogado tem no dia inteiro. Daí duas defesas: o teto de 480
 minutos (decisão **do front**; a API aceita mais) e a leitura em horas ao lado do campo, com
 `aria-live="polite"`, para `180` ser conferido como `3h` sem aritmética mental.
+
+#### A UF decide quem recebe atualização — e erra em silêncio
+
+A `uf` da sala não é campo de relatório. O **Desktop** a recebe no registro do canal WebSocket
+(`websocket/handler.ts` seleciona `room: { select: { name: true, uf: true } }`) e a grava em disco; é ela que
+decide se aquela máquina entra numa publicação de versão dirigida a um estado. Antes da coluna existir, a
+sigla era digitada à mão pelo instalador do Desktop, máquina por máquina.
+
+O modo de falha é o pior possível: **mudo**. Uma sala do Maranhão marcada como `MT` é cadastro perfeitamente
+válido — a API aceita, a tela aceita, nada reclama. A estação apenas deixa de casar com a onda dirigida ao
+estado dela, e ninguém percebe até uma sala inteira estar parada numa versão antiga. Daí as três decisões:
+
+- **`<Select>` das 27 siglas, nunca texto livre** (`constants/ufs.ts`). É a razão de o campo existir. O
+  `z.enum(UFS)` no schema do formulário é a rede embaixo, para o caso de o campo chegar vazio por reset.
+- **Cada opção mostra a sigla e o nome por extenso** (`UF_NAMES`). As siglas que mais se confundem — `MA`,
+  `MT`, `MS` — são as dos vizinhos geográficos; `MA  Maranhão` no item torna a escolha errada visível na hora
+  de escolher, e não meses depois. Para a API vai só a sigla.
+- **A sigla aparece colada ao nome na listagem** (`SALA GTI · MA`), e não em coluna própria. É a única tela em
+  que uma sala marcada no estado errado pode ser flagrada, e o erro se percebe lendo a sala inteira de uma
+  vez: "essa sala não é de lá".
+
+> ⚠️ **No `PATCH`, a `uf` só viaja quando muda.** É o único campo do formulário de edição em que *ausente*
+> tem significado: a rota monta `...(uf && { uf })` e não tem default, então não mandar é o que diz "mantém".
+> Mandar `''` ou `null` volta `400` do enum. Os outros três campos continuam indo sempre — regime misto no
+> mesmo formulário, registrado aqui para não parecer descuido.
+
+> ⚠️ **A troca de UF não alcança as máquinas já ligadas.** O Desktop só descobre a UF nova no próximo
+> registro do canal. O formulário de edição avisa disso ao detectar a troca — sem esse texto, a mudança
+> pareceria valer imediatamente para as estações conectadas naquele momento.
+
+> ⚠️ **A lista de UFs é espelhada no front.** Não existe rota que devolva as siglas aceitas, e criar uma
+> seria uma requisição para buscar uma constante que não muda. O custo é manter `constants/ufs.ts` em
+> sincronia com `utils/validations/uf.ts` da `api-fr`; o sintoma da divergência seria uma sigla oferecida e
+> recusada com `400`.
+
+> ⚠️ **Ordem de deploy.** A `api-fr` com a migração precisa subir **antes** do painel. Com a API antiga, a
+> `uf` no `POST` é descartada em silêncio pelo strip do Zod, mas o `get-all` volta sem o campo: a listagem
+> apresenta o separador sem sigla e a edição abre com o seletor vazio, travando no envio. Degrada, não
+> quebra — mas é uma janela de confusão evitável.
+
+> ⚠️ **A busca da tabela não alcança a sigla.** Filtrar `MA` no mesmo campo casaria com "SALA MANHÃ".
+> Auditar por estado hoje é rolar a lista; um filtro próprio ficou registrado como próximo passo.
 
 #### A unicidade da sala é do `slug`, não do nome
 
@@ -844,9 +889,10 @@ das outras colunas.
 
 #### Editar é diálogo, cadastrar é painel lateral
 
-`PATCH /rooms/update/:id` é `ADMIN`-only e aceita **corpo parcial** — `name`, `standardTime` e `description`
-são todos opcionais. O formulário de edição (`update-room.tsx`) repete os três campos do cadastro, com a
-mesma prévia de identificador e a mesma leitura do tempo em horas, mas em `Dialog` e não em `Sheet`.
+`PATCH /rooms/update/:id` é `ADMIN`-only e aceita **corpo parcial** — `name`, `uf`, `standardTime` e
+`description` são todos opcionais. O formulário de edição (`update-room.tsx`) repete os quatro campos do
+cadastro, com a mesma prévia de identificador e a mesma leitura do tempo em horas, mas em `Dialog` e não em
+`Sheet`.
 
 A escolha não é estética. Cadastrar é composição: o administrador chega com a sala na cabeça e preenche do
 zero, e o painel lateral deixa a tela livre ao lado. Editar é correção pontual disparada **de dentro de uma

@@ -1,9 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { UFS } from '@/constants/ufs'
 
 const updateRoomFormSchema = z.object({
   name: z.string().trim().min(3, 'Nome da sala obrigatório.').max(60, 'Nome muito longo (máx. 60 caracteres).'),
+  uf: z.enum(UFS, 'Selecione o estado da sala.'),
   standardTime: z
     .number({ error: 'Informe o tempo padrão em minutos.' })
     .int('Use minutos inteiros.')

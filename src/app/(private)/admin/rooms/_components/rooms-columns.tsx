@@ -16,6 +16,15 @@ export const columns = columnHelper.columns([
   columnHelper.accessor('name', {
     header: 'Nome',
     meta: { skeletonClassName: 'w-40' },
+    // A UF anda colada no nome porque esta é a única tela onde dá para flagrar uma sala marcada no
+    // estado errado — o sintoma do outro lado é mudo: a estação só deixa de receber a atualização.
+    cell: ({ row }) => (
+      <span className="flex items-center gap-1.5">
+        {row.original.name}
+
+        <span className="font-medium text-muted-foreground">· {row.original.uf}</span>
+      </span>
+    ),
   }),
   columnHelper.accessor('standardTime', {
     header: 'Tempo padrão',

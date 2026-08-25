@@ -166,15 +166,20 @@
       funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
 ### Salas
-- [x] Listar (`GET /rooms/get-all`) — tabela com nome, tempo padrão, descrição, situação e data de criação,
-      busca por nome e paginação no cliente (a rota devolve tudo de uma vez). A primitiva `DataTable`
-      (TanStack v9) nasceu no design system para as outras quatro áreas reusarem
-- [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, tempo padrão em minutos (lido em horas ao
-      lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e não
-      o nome, que decide a unicidade da sala
+- [x] Listar (`GET /rooms/get-all`) — tabela com nome (com a UF colada: `SALA GTI · MA`), tempo padrão,
+      descrição, situação e data de criação, busca por nome e paginação no cliente (a rota devolve tudo de
+      uma vez). A primitiva `DataTable` (TanStack v9) nasceu no design system para as outras quatro áreas
+      reusarem
+- [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, UF, tempo padrão em minutos (lido em horas
+      ao lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e
+      não o nome, que decide a unicidade da sala
 - [x] Editar (`PATCH /rooms/update/:id`) — diálogo aberto pelo botão da linha, já preenchido com a sala.
       Clique fora não fecha (ESC e Cancelar sim), reabrir descarta o rascunho anterior, salvar exige
       alteração e a descrição apagada limpa o campo em vez de gravar uma string vazia
+- [x] UF da sala (`uf`) — `<Select>` das 27 siglas nos dois formulários, sem texto livre: é a UF que o
+      Desktop recebe no registro do WebSocket e que decide se a máquina entra numa publicação de versão
+      dirigida ao estado. No cadastro abre em `MA` e vai sempre no corpo; na edição só viaja quando muda
+      (no `PATCH` ausente = mantém) e avisa que as estações só recebem o estado novo ao reconectar
 - [x] Ativar / inativar (`PATCH /rooms/activate/:id` e `/deactivate/:id`) — inativar pede confirmação e diz
       quantos computadores saem do quadro de liberação; reativar vai direto, por ser construtivo e reversível
       pelo botão ao lado
