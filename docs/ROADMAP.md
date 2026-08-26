@@ -106,8 +106,9 @@
       HTML de quem não pode vê-lo
 - [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
       herdar "Painel"
-- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` existe (cadastro, listagem e edição, ver seção 5);
-      `/printers`, `/releases`, `/admin/computers` e `/admin/employees` ainda caem na 404
+- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` e `/admin/computers` existem
+      (cadastro, listagem e edição, ver seção 5), `/admin/employees` já cadastra mas ainda não lista;
+      `/printers` e `/releases` ainda caem na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
 - [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
       `/auth/sign-in` (correto para quem não tem sessão, mas o proxy já devolveria ao painel quem tem)
@@ -164,7 +165,14 @@
 
 ### Funcionários
 - [ ] Listar (`GET /employees/get-all`) — **sem paginação na API**
-- [ ] Cadastrar (`POST /employees/create-account`)
+- [x] Cadastrar (`POST /employees/create-account`) — painel lateral com nome, CPF, e-mail e senha inicial,
+      no arranjo das outras duas áreas administrativas. O CPF reusa a máscara e a validação do login, porque
+      é a mesma credencial, e vai à API só com os dígitos. Como CPF e e-mail são únicos, a recusa de `400` é
+      lida para apontar **qual** dos dois está repetido, sob o campo, em vez de um toast que o usuário
+      teria de traduzir. A senha é digitada pelo administrador e segue por e-mail em texto — desenho da
+      API —, então o campo alterna Mostrar/Ocultar e recusa o preenchimento automático, que ofereceria ali
+      a senha do próprio administrador logado. Não há escolha de papel: a rota não aceita, todo cadastro
+      sai `MEMBER`
 - [ ] Editar (`PATCH /employees/update/:id`)
 - [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`)
 - [ ] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`)

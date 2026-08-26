@@ -73,6 +73,7 @@ src/
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
 │       ├── admin/computers/       # /admin/computers — cadastro, listagem, edição e exclusão (page + _components)
+│       ├── admin/employees/       # /admin/employees — cadastro de colaborador (page + _components)
 │       └── _components/shared/
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
@@ -278,8 +279,8 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral. **Ainda sem listagem** — quem cadastra não vê o resultado na tela. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
-| `/admin/employees` | — | **linkada pela sidebar, não existe**; só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -784,7 +785,7 @@ declara o próprio título.
 
 ### Salas de liberação (`/admin/rooms`)
 
-Primeira área administrativa a existir de fato — hoje só `/admin/employees` ainda cai na 404. A tela tem o cabeçalho
+Primeira área administrativa a existir de fato. A tela tem o cabeçalho
 da área, um painel lateral (`Sheet`) com o formulário de nova sala e a **tabela das salas cadastradas**, com
 busca por nome, paginação, edição em diálogo e a alternância entre ativa e inativa. O ciclo da sala está
 fechado: criar, ver, corrigir e tirar de operação sem sair da tela.
@@ -1087,6 +1088,75 @@ Duas diferenças em relação ao cadastro, e as duas existem por causa da API:
 
 > ⚠️ **A colisão de `number` continua possível.** A sugestão do próximo livre reduz a chance, mas duas abas
 > cadastrando na mesma sala ainda colidem — quem recusa é o `400`.
+
+---
+
+### Colaboradores (`/admin/employees`)
+
+Terceira e última área administrativa. Ao contrário das outras duas, **nasceu só com o formulário**: a tela
+cadastra, mas ainda não lista. É a mesma situação em que `/admin/rooms` ficou por um ciclo — quem cadastra
+não vê o resultado, e não há como conferir quem já existe antes de tentar.
+
+Até esta tela, criar uma conta do painel só era possível direto no banco. A única conta existente era a que
+alguém inseriu à mão.
+
+**Quatro campos, e o que a `api-fr` faz com cada um:**
+
+| Campo | Validação do front | Na `api-fr` |
+| --- | --- | --- |
+| `name` | 3 a 60 caracteres | obrigatório, sem limite |
+| `cpf` | máscara progressiva + dígitos verificadores; enviado só com os dígitos | **único** — colisão volta `400` |
+| `email` | formato + caixa baixa | **único** — colisão volta `400` |
+| `password` | mínimo de 8 caracteres | gravada com `hash`, e **enviada em texto por e-mail** |
+
+O CPF reusa `maskCpf` e `cpfSchema` — os mesmos do login, deliberadamente. É a **credencial de acesso**: se
+esta tela gravasse "123.456.789-09" onde o login procura "12345678909", criaria uma conta que o próprio
+login não encontra.
+
+#### A recusa aponta o campo, não o toast
+
+Salas e computadores mandam a mensagem de `400` para o toast, e lá isso basta porque há um candidato óbvio
+ao conflito. Aqui há **dois** campos únicos, e um toast dizendo "Já existe um funcionário cadastrado com
+esse CPF." obriga o usuário a traduzir a frase para saber onde mexer, com o formulário inteiro preenchido na
+frente dele.
+
+`resolveDuplicatedField` procura `cpf` e `mail` na mensagem da API e devolve o campo, que recebe `setError`
+e `setFocus`. Quando nada casa, cai no toast geral. A frase não aparece nos dois lugares ao mesmo tempo.
+
+> ⚠️ **A identificação depende do texto da mensagem.** Se a `api-fr` reescrever essas frases, o erro deixa
+> de apontar o campo e vira aviso geral. Degrada, não quebra.
+
+#### A senha é digitada por quem não é o dono dela
+
+O administrador escolhe a senha inicial, e a `api-fr` a envia **em texto** no e-mail de boas-vindas, junto
+com o link do login. É o desenho da API, não uma escolha desta tela.
+
+Duas consequências no formulário:
+
+- **Alternância Mostrar/Ocultar**, como no login. Aqui ela pesa mais: quem digita não vai poder reler o
+  valor em lugar nenhum depois do cadastro.
+- **`autoComplete="new-password"`**. Com `off` ou `current-password`, o gerenciador do navegador ofereceria
+  a credencial do **administrador logado** num campo cujo conteúdo vai por e-mail para outra pessoa.
+
+Não há confirmação de senha, e a ausência é deliberada: em `change-password` e `reset-password` quem digita
+é o dono da senha, e o erro de digitação o tranca para fora. Aqui o valor vai por e-mail exatamente como foi
+escrito — um engano não tranca ninguém, o colaborador recebe a senha errada e entra com ela.
+
+> ⚠️ **O `201` não é prova de que o e-mail saiu.** A rota registra a falha do provedor no log e responde
+> `201` do mesmo jeito. Como a senha só existia naquela mensagem, o colaborador criado sem e-mail entregue
+> depende do fluxo de esqueci-minha-senha. O toast de sucesso nomeia o endereço de destino porque um e-mail
+> digitado errado passa por todas as validações — é um endereço válido, só não é o dela — e, sem listagem,
+> esse é o único momento em que dá para notar.
+
+#### O que esta tela não faz
+
+- **Não escolhe papel.** A rota não lê `role` do corpo; o Prisma aplica `@default(MEMBER)`. Promover alguém
+  a `ADMIN` continua sendo operação de banco — e isso é limitação da **API**, que não expõe rota para isso.
+- **Não vincula a salas.** É `POST /employees/link-with-rooms`, outra rota, e a resposta do cadastro é
+  `{ message }` **sem o `id`** do colaborador criado: as duas chamadas não podem ser encadeadas. O
+  colaborador nasce sem sala.
+- **Não lista, não edita, não inativa.** `queryKeys.getEmployees()` já existe e já é invalidada pelo
+  cadastro, à espera da tabela.
 
 ---
 
