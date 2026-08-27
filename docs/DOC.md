@@ -256,7 +256,10 @@ Confirmar antes de planejar as telas correspondentes.
 - ~~**Liberar computador manualmente pelo funcionário**~~ — **falso alarme, corrigido em 2026-08-19.**
   `POST /lawyers/release-computer` sempre existiu, é **pública** e identifica a máquina pelo `macCode`. Foi
   desenhada para o Desktop e serve o painel sem alteração alguma.
-- **Baixar arquivo da fila de impressão** — a listagem existe, o download não.
+- **Baixar arquivo da fila de impressão** — a listagem existe e a tela `/printers` já a consome, mas o
+  download não. O `fileUrl` aponta para o Storage, em outro domínio, onde `<a download>` é ignorado pelo
+  navegador: a tela **abre** o arquivo em aba nova, que é o máximo honesto daqui. Vira download de verdade
+  no dia em que a `api-fr` servir o arquivo pelo próprio domínio.
 - **Relatórios** — nada implementado.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
   `session_started`, e o canal não é autenticado. Sem eles o painel não tem como saber o que acontece fora
@@ -280,7 +283,8 @@ Confirmar antes de planejar as telas correspondentes.
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral e gestão das salas vinculadas. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
-| `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
+| `/printers` | `(private)` | histórico de impressões: filtros de sala (`?sala=`), período e busca, tabela com o arquivo em aba nova e aviso do expurgo semanal. Aberta aos dois papéis — o escopo por sala é o que a `api-fr` já resolve |
+| `/releases` | — | **linkada pela sidebar, não existe** |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -1356,6 +1360,124 @@ esmeralda é ativo, rosa é ocupado, âmbar é aviso. Papel não é estado nem a
 > ⚠️ **A listagem não mostra as salas vinculadas, de propósito.** O campo `employeesRooms` vem do servidor
 > (change `list-employee-linked-rooms` na API) e alimenta o **painel de vínculos**, não a coluna: vínculo é
 > coisa que se edita, não que se confere de relance. E o painel depende dele para calcular o delta.
+
+### Histórico de impressões (`/printers`)
+
+Primeira tela fora da área administrativa desde o painel de operação, e a última das cinco áreas que a
+sidebar prometia e que ainda caía na 404.
+
+O caso de uso é de balcão: o advogado envia o arquivo pela estação e volta ao guichê pedindo a impressão.
+Quem atende precisa saber **quem** imprimiu, **de qual máquina**, **quando**, e chegar ao arquivo.
+
+**Uma rota só, `GET /printers/get-all/:roomId?`**, com o `roomId` opcional no caminho. A resposta já vem
+ordenada da impressão mais recente para a mais antiga e traz, por linha, o advogado, a sala, o computador e
+o `fileUrl`.
+
+#### O escopo por papel não é reimplementado aqui
+
+A `api-fr` resolve o escopo dentro da própria consulta: `ADMIN` enxerga todas as salas, `MEMBER` só aquelas
+em que está vinculado (`computerWhere` em `core/printers/get-all.ts`). Sem `roomId`, a rota devolve
+exatamente o que aquele funcionário pode ver — e é isso, e nada mais, que a opção "Todas as salas" usa.
+
+Não há um `if (role === 'ADMIN')` nesta tela. Repetir a regra no cliente criaria uma segunda fonte de
+verdade que envelheceria sozinha, e que — sendo cliente — não protege coisa alguma.
+
+#### O aviso do topo diz as duas coisas que a lista não conta
+
+A `api-fr` apaga os arquivos enviados **toda sexta-feira às 23:59** (`jobs/delete-weekly-prints.cron.ts`).
+Uma tela que não dissesse isso deixaria o balcão descobrir o expurgo no dia em que precisasse de algo que já
+não existe mais.
+
+A segunda frase é o recorte: o funcionário enxerga as salas em que está vinculado. Sem ela, uma lista curta
+seria lida como "houve poucas impressões" em vez de "este é o seu pedaço".
+
+Como o painel de operação, o aviso é oculto abaixo de 640px — no celular ele empurraria a lista para fora
+da dobra, e a lista é o motivo de a tela existir.
+
+#### Três filtros, e só um deles vai para a URL
+
+| Filtro | Onde vive | Por quê |
+| --- | --- | --- |
+| Sala | `?sala=` | decide **o que a tela carrega** da API; recarregar ou colar o link tem de voltar à mesma sala |
+| Período | estado | só estreita o que já está na mão |
+| Busca | estado | idem |
+
+Encher a URL de estado que não muda requisição nenhuma torna o endereço ruído. A sala é a exceção porque é
+chave de consulta — e porque um link de sala colado no chat do balcão é uso real.
+
+Um `?sala=` que não corresponda a uma sala visível — inexistente, inativa, ou fora do escopo daquele
+funcionário — **cai em "todas as salas"**. A alternativa seria uma tela vazia com um erro, e o histórico não
+tem por que sumir porque um parâmetro envelheceu.
+
+#### Os filtros rodam no cliente, e isso tem prazo de validade
+
+A rota **já aceita** `?lawyer=`, `?startDate=` e `?endDate=`. A tela não os usa, por duas razões:
+
+- **A lista já está inteira na mão.** A `api-fr` não pagina esta rota. Mandar a busca ao servidor trocaria
+  um filtro instantâneo por uma ida à rede a cada tecla, sobre dados que o navegador já tem.
+- **A busca do cliente alcança mais.** Ela cobre advogado, computador **e** sala; o `?lawyer=` cobre só o
+  primeiro.
+
+> ⚠️ **Isso deixa de valer no dia em que a rota paginar.** Aí o cliente passa a ver uma página, filtrar
+> localmente vira mentira, e os três parâmetros são o caminho pronto. O ponto de troca é o `queryFn` — por
+> isso a chave `getPrinters(roomId)` já nasce parametrizada pela sala.
+
+#### O fuso é o da Seccional, não o de quem olha
+
+A coluna de data e o corte dos períodos usam `America/Fortaleza` fixo. A impressão aconteceu no balcão: uma
+enviada às 22h precisa aparecer no dia em que foi enviada, e não no seguinte porque alguém abriu o painel de
+outro fuso. Sem isso, "hoje" seria uma pergunta sobre o relógio de quem olha.
+
+Os períodos comparam **chaves de dia** em `en-CA` (`2026-08-27`), não instantes. Nesse formato a ordem
+lexicográfica é a ordem cronológica, então "últimos 7 dias" vira um `>=` de strings — sem aritmética de
+`Date`, que é justamente onde o fuso escapa. A janela conta com o dia corrente (`now - 6 dias`), senão
+"últimos 7 dias" mostraria oito.
+
+#### O botão de abrir é um link, e "abrir" é o que ele faz
+
+O roadmap pedia "baixar". O arquivo está no Storage, em outro domínio, e `<a download>` entre origens é
+**ignorado** pelo navegador — o atributo estaria ali mentindo. Um `<a target="_blank">` vestido com
+`buttonVariants` faz o que promete: abre o arquivo, e de lá o usuário salva, imprime de novo ou copia o
+endereço.
+
+Sendo link de verdade, ganha de graça o menu de contexto, o "abrir em nova janela" e a presença na lista de
+links da página. O `aria-label` começa pelo verbo (para quem navega por voz pedir "abrir" e acertar) e
+termina pelo nome do advogado, que é o que diferencia uma linha da outra.
+
+> ⚠️ **A URL é a do Storage.** Se ela expirar ou passar a exigir credencial, o botão falha fora do alcance
+> desta tela, e não há como distinguir isso de um arquivo já apagado. Servir o arquivo pela própria API é o
+> que transformaria isso em download de verdade — segue na lista de dependências do backend.
+
+#### Só as salas seguram a tela
+
+Enquanto as salas carregam, a toolbar inteira fica em esqueleto: são elas que decidem qual sala está
+selecionada, e renderizar o seletor antes disso o faria mostrar "Todas as salas" para pular à sala da URL um
+instante depois. A espera pelas impressões é a própria tabela quem mostra — o layout não sai do lugar.
+
+Pelo mesmo motivo a consulta de impressões espera as salas (`enabled: !isPendingRooms`): antes disso um
+`?sala=` ainda não virou id validado, e buscar agora traria o histórico inteiro para trocá-lo pelo da sala em
+seguida, gastando dois requests.
+
+**Se as salas falharem, a tela não cai.** Sem `roomId` a rota já devolve tudo o que o funcionário pode ver;
+o que se perde é o filtro por sala, e isso vira um aviso âmbar acima da tabela. Um seletor vazio sem
+explicação é pior que a falha.
+
+#### A lista vazia tem três causas e três saídas
+
+Vazio porque não há nada guardado, porque a busca não achou, ou porque o período não alcança. Cada um pede
+uma ação diferente de quem está olhando — esperar, corrigir o texto, ampliar o período — e uma mensagem
+única ("nenhum resultado") faria as três parecerem a primeira, que é a única sem saída.
+
+#### A contagem espera a lista
+
+Contar antes de os dados chegarem escreveria "00 impressões" a cada troca de sala, e zero é uma afirmação
+sobre o resultado, não uma espera. Enquanto a consulta corre, a contagem é esqueleto. O total ao lado
+(`· 42 no total`) só aparece quando algum filtro está de fato escondendo linhas — comparar 42 com 42 não
+informa nada.
+
+> **A paginação é a da tabela, não da API.** O histórico de uma semana inteira não cabe numa tela, e a
+> `api-fr` ainda devolve a lista sem paginar. Quando ela paginar, a troca acontece no `DataTable` e no
+> `queryFn`, juntos.
 
 ---
 

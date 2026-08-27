@@ -119,8 +119,8 @@
 - [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
       herdar "Painel"
 - [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` e `/admin/computers` existem
-      (cadastro, listagem e edição, ver seção 5), `/admin/employees` já cadastra mas ainda não lista;
-      `/printers` e `/releases` ainda caem na 404
+      (cadastro, listagem e edição, ver seção 5), `/admin/employees` lista e edita, `/printers` lista o
+      histórico de impressões (seção 6); só `/releases` ainda cai na 404
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
 - [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
       `/auth/sign-in` (correto para quem não tem sessão, mas o proxy já devolveria ao painel quem tem)
@@ -270,10 +270,21 @@
 
 ## 6. Fila de impressão
 
-- [ ] Listar impressões da(s) sala(s) do funcionário (`GET /printers/get-all/:roomId?`)
-- [ ] Aviso de expurgo semanal (sexta-feira, 23:59:59)
-- [ ] ⛔ Baixar arquivo para impressão — **bloqueado: rota não existe na API**
+- [x] Listar impressões da(s) sala(s) do funcionário (`GET /printers/get-all/:roomId?`) — advogado, sala,
+      computador e data/hora, da mais nova para a mais antiga. O escopo por papel é o que a API já resolve:
+      sem `roomId` a rota devolve tudo o que aquele funcionário pode ver, e a tela não repete a regra
+- [x] Aviso de expurgo semanal (sexta-feira, 23:59) junto do escopo por papel — as duas coisas que mudam o
+      significado da lista e não se deduzem olhando para ela (oculto abaixo de 640px)
+- [x] Filtros de sala, período e busca — a sala vive em `?sala=` porque decide o que a tela carrega e
+      precisa sobreviver a um recarregamento; período e busca ficam no estado, porque só estreitam o que já
+      está na mão. O corte de período usa o fuso da Seccional, não o do navegador
+- [~] Baixar arquivo para impressão — a tela **abre** o arquivo em aba nova, e não baixa: o `fileUrl` aponta
+      para o Storage, em outro domínio, onde o atributo `download` é ignorado pelo navegador. Continua
+      dependendo da API para virar download de verdade
 - [ ] ⛔ Marcar como baixado / impresso — **bloqueado: não implementado na API**
+- [ ] Filtros no servidor (`?lawyer=`, `?startDate=`, `?endDate=`, que a rota **já aceita**) no lugar dos do
+      cliente — só faz sentido quando a listagem paginar; hoje a lista chega inteira e filtrar localmente é
+      mais rápido e alcança mais campos
 
 ---
 
@@ -299,7 +310,9 @@
 Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para destravar este painel:
 
 1. **Paginação reutilizável** — afeta todas as listagens.
-2. **Download do arquivo de impressão** — sem ele a fila é só leitura.
+2. **Download do arquivo de impressão** — a tela abre o arquivo do Storage em aba nova, que é o que o
+   navegador permite entre domínios. Servir o arquivo pela própria API é o que transformaria isso em
+   download de verdade.
 3. **Eventos de negócio no WebSocket** — a única forma de o painel ver o que acontece fora dele sem
    voltar a repetir requisições.
 4. **Relatórios**.
