@@ -14,6 +14,10 @@ export type ComputerWithRoomProps = {
   /** Data ISO de quando a máquina entrou em manutenção — `null` enquanto ela está em operação. */
   maintenance: string | null
   createdAt: string
+  /** Última versão do Desktop informada pela estação. `null` = ela nunca informou; não é erro. */
+  appVersion: string | null
+  /** Data ISO de **quando informou** a versão — não de quando esteve online pela última vez. */
+  appVersionReportedAt: string | null
   room: ComputerRoomProps
 }
 

@@ -2,8 +2,11 @@
 
 import { createColumnHelper } from '@tanstack/react-table'
 import { format, isValid, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { MonitorIcon, WrenchIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { DataTableFeatures } from '@/components/ui/data-table/data-table-features'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { ComputerWithRoomProps } from '@/server/computers/get-all'
 import { DeleteComputer } from './delete-computer'
@@ -13,14 +16,30 @@ const columnHelper = createColumnHelper<DataTableFeatures, ComputerWithRoomProps
 
 export const columnsComputers = columnHelper.columns([
   columnHelper.accessor('number', {
-    header: 'Número',
-    meta: { skeletonClassName: 'w-10' },
-    // Mesmo rótulo do painel de operação: o balconista procura a máquina por "ESTAÇÃO-01", não por "1".
-    cell: ({ getValue }) => <span className="tabular-nums">ESTAÇÃO-{String(getValue()).padStart(2, '0')}</span>,
-  }),
-  columnHelper.accessor('description', {
-    header: 'Descrição',
-    meta: { skeletonClassName: 'w-48' },
+    header: 'Estação',
+    meta: { skeletonClassName: 'h-8 w-48' },
+    // Número e descrição eram duas colunas e viraram uma célula, como o nome e o e-mail do colaborador:
+    // ninguém procura "COMPUTADOR 03" sem antes achar a estação, e separá-los fazia o olho pular de uma
+    // ponta à outra da linha. O ladrilho é neutro de propósito — o estado da máquina é a coluna Status,
+    // e pintá-lo aqui seria dizer a mesma coisa duas vezes.
+    cell: ({ row }) => {
+      const { number, description } = row.original
+
+      return (
+        <div className="flex items-center gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+            <MonitorIcon className="size-4" />
+          </span>
+
+          <div className="flex flex-col">
+            {/* Mesmo rótulo do painel de operação: o balconista procura por "ESTAÇÃO-01", não por "1". */}
+            <span className="font-medium tabular-nums leading-tight">ESTAÇÃO-{String(number).padStart(2, '0')}</span>
+
+            <span className="text-muted-foreground text-xs leading-tight">{description}</span>
+          </div>
+        </div>
+      )
+    },
   }),
   columnHelper.accessor('room.name', {
     header: 'Sala vinculada',
@@ -28,8 +47,59 @@ export const columnsComputers = columnHelper.columns([
   }),
   columnHelper.accessor('macCode', {
     header: 'Código MAC',
-    meta: { skeletonClassName: 'w-40' },
-    cell: ({ getValue }) => <span className="tabular-nums tracking-wider">{getValue()}</span>,
+    meta: { skeletonClassName: 'h-7 w-44' },
+    // É a chave que casa a máquina física com o Desktop: o app se registra no WebSocket por ela, e o
+    // servidor casa byte a byte. Por isso vira ficha monoespaçada em vez de texto corrido — é `font-mono`,
+    // e não `tabular-nums`, porque MAC tem letra além de número e só a monoespaçada alinha a coluna
+    // inteira para conferir caractere a caractere.
+    //
+    // Exibido **verbatim**: a api-fr guarda o campo como string opaca e única, sem formato imposto. Um
+    // `uppercase` cosmético mostraria na tela algo diferente do que está gravado, e é justamente aqui
+    // que alguém compara com a configuração da estação para achar por que ela não conecta.
+    cell: ({ getValue }) => (
+      <span className="inline-flex items-center rounded-md border bg-muted/40 px-2 py-1 font-mono text-foreground text-xs">
+        {getValue()}
+      </span>
+    ),
+  }),
+  columnHelper.accessor('appVersion', {
+    header: 'Desktop',
+    meta: { skeletonClassName: 'h-5 w-16 rounded-full' },
+    // Companheira do MAC: o código diz com qual máquina o Desktop deveria falar, esta coluna diz se ele
+    // chegou a falar. Estação cadastrada e sem versão é o sintoma de instalação que nunca subiu.
+    cell: ({ row }) => {
+      const { appVersion, appVersionReportedAt } = row.original
+
+      if (!appVersion) {
+        return (
+          <Tooltip>
+            <TooltipTrigger render={<span className="cursor-default text-muted-foreground">—</span>} />
+
+            {/* Não é erro: ou a estação não conectou desde que a api-fr passou a guardar, ou o envio
+                está desligado na configuração local dela. */}
+            <TooltipContent>Esta estação nunca informou a versão</TooltipContent>
+          </Tooltip>
+        )
+      }
+
+      const reportedAt = appVersionReportedAt ? parseISO(appVersionReportedAt) : null
+
+      return (
+        <Tooltip>
+          <TooltipTrigger render={<Badge variant="outline" className="cursor-default font-mono tabular-nums" />}>
+            v{appVersion}
+          </TooltipTrigger>
+
+          {/* O carimbo é de quando ela se apresentou, não de quando esteve online: a versão só viaja no
+              `register` do WebSocket, então máquina que não cai há semanas mostra data antiga estando no ar. */}
+          <TooltipContent>
+            {reportedAt && isValid(reportedAt)
+              ? `Informada em ${format(reportedAt, "dd MMM. yyyy 'às' HH:mm", { locale: ptBR })}`
+              : 'Versão do aplicativo nesta estação'}
+          </TooltipContent>
+        </Tooltip>
+      )
+    },
   }),
   columnHelper.accessor('maintenance', {
     header: 'Status',
@@ -40,7 +110,11 @@ export const columnsComputers = columnHelper.columns([
       const { maintenance, inUse } = row.original
 
       if (maintenance) {
-        return <Badge variant="destructive">Manutenção</Badge>
+        return (
+          <Badge variant="destructive">
+            <WrenchIcon data-icon="inline-start" /> Manutenção
+          </Badge>
+        )
       }
 
       return (
@@ -53,11 +127,13 @@ export const columnsComputers = columnHelper.columns([
   }),
   columnHelper.accessor('createdAt', {
     header: 'Data da criação',
-    meta: { skeletonClassName: 'w-24' },
+    meta: { skeletonClassName: 'w-28' },
     cell: ({ getValue }) => {
       const createdAt = parseISO(getValue())
 
-      return isValid(createdAt) ? format(createdAt, 'dd/MM/yyyy') : '—'
+      // O ponto é literal na máscara: o locale pt-BR do date-fns v4 devolve o mês curto sem abreviação
+      // gráfica ("ago"), e o painel escreve datas no padrão "23 ago. 2026".
+      return isValid(createdAt) ? format(createdAt, 'dd MMM. yyyy', { locale: ptBR }) : '—'
     },
   }),
   columnHelper.display({

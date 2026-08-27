@@ -60,8 +60,10 @@ export function DataTable<TData extends RowData>({
                 <TableRow key={rowKey}>
                   {table.getVisibleLeafColumns().map(column => (
                     <TableCell key={column.id} className={column.columnDef.meta?.className}>
+                      {/* `h-5` bate com a altura de linha do `text-sm`: skeleton mais baixo faz a tabela
+                          encolher no instante em que os dados chegam, e o salto parece defeito de render. */}
                       <Skeleton
-                        className={cn('inline-block h-4 w-32 bg-muted-foreground/20', column.columnDef.meta?.skeletonClassName)}
+                        className={cn('inline-block h-5 w-32 bg-muted-foreground/20', column.columnDef.meta?.skeletonClassName)}
                       />
                     </TableCell>
                   ))}
