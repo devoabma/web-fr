@@ -8,7 +8,7 @@ import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -168,27 +168,38 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
+      /*
+        No mobile o menu é a mesma anatomia dos painéis de formulário do projeto: painel flutuante, com o
+        respiro do `--drawer-inset` nas quatro bordas e o arrastar-para-fechar do Drawer. O lado do menu é
+        que decide para onde se arrasta.
+
+        `--drawer-bleed-background` apaga a faixa que o `::after` do popup pinta pra fora da borda: sem
+        isso ela aparece como um risco da cor do painel dentro do respiro. O `!` na largura é porque o
+        componente define `--drawer-content-width` num seletor mais específico (`data-[swipe-axis=x]:sm:`),
+        e a faixa mobile (< 768px) passa por dentro do `sm:` — sem ele o menu ganharia 24rem entre 640px e
+        767px, em vez dos 18rem de sempre.
+      */
+      <Drawer open={openMobile} onOpenChange={setOpenMobile} swipeDirection={side === 'right' ? 'right' : 'left'}>
+        <DrawerContent
           dir={dir}
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="rounded-xl border bg-sidebar text-sidebar-foreground shadow-lg [--drawer-bleed-background:transparent] [--drawer-inset:0.75rem] [--drawer-content-width:var(--sidebar-width)]!"
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Menu de navegação</DrawerTitle>
+            <DrawerDescription>Atalhos para as áreas do painel.</DrawerDescription>
+          </DrawerHeader>
+
           <div className="flex h-full w-full flex-col">{children}</div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 

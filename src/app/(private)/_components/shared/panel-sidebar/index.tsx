@@ -14,7 +14,9 @@ type PanelSidebarProps = ComponentProps<typeof Sidebar> & {
 
 export function PanelSidebar({ role, ...props }: PanelSidebarProps) {
   return (
-    <Sidebar collapsible="icon" className="border-sidebar-border" {...props}>
+    // `inset`: a sidebar deixa de ser uma coluna com borda e passa a flutuar sobre o fundo escuro, com o
+    // conteúdo do painel virando uma ilha arredondada ao lado dela — a mesma anatomia do menu no mobile.
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarContent className="relative px-2 py-3">
         <NavItems role={role} />
       </SidebarContent>

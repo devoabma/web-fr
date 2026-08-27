@@ -24,7 +24,11 @@ export default async function PrivateLayout({ children }: { children: ReactNode 
       defaultOpen={defaultOpen}
       // O header mora dentro do provider (o gatilho mobile depende do contexto da sidebar),
       // por isso o wrapper vira coluna: header em cima, sidebar + conteúdo na linha de baixo.
-      className="h-svh flex-col overflow-hidden"
+      //
+      // `bg-sidebar` é o fundo que faz a ilha do conteúdo aparecer. O componente pinta isso sozinho com
+      // `has-data-[variant=inset]`, mas só no desktop: no mobile a sidebar é um drawer em portal, então o
+      // elemento com `data-variant` não existe dentro do wrapper e o `has-` não casa.
+      className="h-svh flex-col overflow-hidden bg-sidebar"
       style={{ '--sidebar-offset': HEADER_HEIGHT } as CSSProperties}
     >
       <PanelHeader />
@@ -32,7 +36,10 @@ export default async function PrivateLayout({ children }: { children: ReactNode 
       <div className="flex min-h-0 w-full flex-1">
         <PanelSidebar role={role} />
 
-        <SidebarInset className="min-h-0">
+        {/* O `SidebarInset` já traz a ilha do `md:` para cima; abaixo disso ela é declarada aqui, com o
+            mesmo respiro do drawer. `overflow-hidden` vale nas duas larguras: sem ele o filho que rola
+            passa por cima do canto arredondado. */}
+        <SidebarInset className="min-h-0 overflow-hidden max-md:m-3 max-md:rounded-xl max-md:shadow-sm">
           <div className="flex flex-1 flex-col gap-6 overflow-auto p-6">{children}</div>
         </SidebarInset>
       </div>

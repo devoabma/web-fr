@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import type { Role } from '@/lib/auth/session'
 
@@ -52,8 +53,21 @@ type NavItemsProps = {
 export function NavItems({ role }: NavItemsProps) {
   const pathname = usePathname()
 
+  const { isMobile, setOpenMobile } = useSidebar()
+
   function isPathActive(pathname: string, path: string) {
     return pathname === path || pathname.startsWith(`${path}/`)
+  }
+
+  /**
+   * No mobile o sidebar não empurra o conteúdo: ele é um painel sobreposto. Navegar sem fechá-lo deixaria
+   * a página escolhida atrás do próprio menu, e o usuário teria de fechá-lo à mão para ver o que pediu.
+   *
+   * No desktop ele fica ao lado do conteúdo, então continua aberto — fechá-lo ali seria perder o menu a
+   * cada clique.
+   */
+  function handleNavigate() {
+    if (isMobile) setOpenMobile(false)
   }
 
   const sections = NAV_SECTIONS.filter(section => !section.adminOnly || role === 'ADMIN')
@@ -76,7 +90,7 @@ export function NavItems({ role }: NavItemsProps) {
                     <SidebarMenuButton
                       isActive={isActive}
                       tooltip={item.label}
-                      render={<Link href={item.path} aria-current={isActive ? 'page' : undefined} />}
+                      render={<Link href={item.path} aria-current={isActive ? 'page' : undefined} onClick={handleNavigate} />}
                     >
                       <item.icon />
                       <span>{item.label}</span>
