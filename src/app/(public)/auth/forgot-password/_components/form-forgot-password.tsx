@@ -229,7 +229,7 @@ export function FormForgotPassword() {
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="voce@oabma.org.br"
+            placeholder="john.doe@salalivre.app"
             aria-invalid={!!errors.email}
             className="h-11 rounded-lg bg-card px-3.5 text-sm shadow-xs"
             {...register('email')}

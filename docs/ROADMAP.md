@@ -93,7 +93,19 @@
 - [x] Navegação em duas seções — Operação e Administração — declarada como dado (`NAV_SECTIONS`)
 - [x] Item ativo por `usePathname`, casando rotas de detalhe, com `aria-current="page"`
 - [x] Recolhimento preservado entre recargas: cookie `sidebar_state` lido no servidor como `defaultOpen`
-- [x] Sidebar vira painel sobreposto (`Sheet`) abaixo de 768px, aberta pelo gatilho da barra superior
+- [x] Sidebar vira painel sobreposto abaixo de 768px, aberta pelo gatilho da barra superior. Desde a change
+      `painel-flutuante` ela é o **mesmo `Drawer` dos formulários administrativos** — flutuante com respiro de
+      `0.75rem`, cantos arredondados e fechamento por arrasto —, e **fecha ao escolher uma área**: o painel
+      cobre o conteúdo, então continuar aberto deixaria a página escolhida atrás dele. No desktop, onde a
+      navegação tem coluna própria, ela permanece aberta
+- [x] Moldura em ilha (`variant="inset"`): fundo do painel no tom da navegação, conteúdo com cantos
+      arredondados, sombra e respiro, e a barra superior sem borda inferior — que viraria um risco
+      atravessando a tela agora que o fundo tem a cor dela. No desktop é o variant do componente; abaixo de
+      768px é declarado no layout, porque as classes do componente começam em `md:`
+- [x] Marca ancorada à coluna da navegação: ela ocupa a largura da coluna e o símbolo cai na mesma vertical
+      dos ícones do menu (16px da borda = 8px do respiro do inset + 8px do recuo da lista), acompanhando o
+      recolhimento à faixa de ícones sem sair do lugar. Isso depende do estado da sidebar, então a marca é o
+      único pedaço cliente da barra superior
 - [x] Rota `/panel` criada — primeira rota do grupo `(private)`; deixou de ser placeholder e passou a
       abrigar a visão da sala (seção 4)
 - [x] Bloco de usuário da barra superior com dados da sessão (`GET /employees/profile`), com `skeleton`
@@ -179,14 +191,23 @@
       API —, então o campo alterna Mostrar/Ocultar e recusa o preenchimento automático, que ofereceria ali
       a senha do próprio administrador logado. Não há escolha de papel: a rota não aceita, todo cadastro
       sai `MEMBER`
-- [ ] Editar (`PATCH /employees/update/:id`) — gatilho já desenhado na listagem, inerte até o diálogo
+- [x] Editar (`PATCH /employees/update/:id`) — painel lateral com nome, e-mail e papel, no desenho do
+      cadastro. Só os campos alterados vão no corpo (a rota aceita parcial), e o e-mail repetido volta como
+      `400` lido no próprio campo. O **CPF aparece bloqueado**: a rota não o aceita, e escondê-lo faria
+      parecer esquecimento. O administrador **não altera o próprio papel** — a API permite, mas rebaixar-se
+      tira o acesso à área administrativa na hora, inclusive a este painel, que seria o único caminho de
+      volta. Editando a si mesmo, `getProfile()` também é invalidado, senão o cabeçalho segue com o dado
+      velho
 - [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`) — a situação já é exibida na listagem
-- [~] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`) — o
-      vínculo já acontece **no cadastro**, opcional, encadeado pelo `employeeId` que o `201` passou a
-      devolver (change `atomic-employee-account-creation` na API). Só as salas ativas são oferecidas,
-      porque a rota recusa sala inativa com `400`. Falta o diálogo de gerenciamento a partir da listagem,
-      que precisa calcular o delta contra o estado atual: `link-with-rooms` **derruba o lote inteiro com
-      `400`** se qualquer sala do payload já estiver vinculada
+- [x] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`) — o
+      vínculo acontece **no cadastro**, opcional, encadeado pelo `employeeId` que o `201` passou a devolver
+      (change `atomic-employee-account-creation` na API), e agora também **pela listagem**, num painel onde
+      marcar vincula e desmarcar desvincula. O envio é o **delta**, não a seleção: `link-with-rooms`
+      derruba o lote inteiro com `400` se qualquer sala do payload já estiver vinculada. `link` roda antes
+      de `unlink` porque é a chamada que valida — falhando ela, nada foi removido; falhando o `unlink`
+      depois, o estado no servidor é parcial e o painel diz isso em vez de fechar calado. Sala **inativa já
+      vinculada** continua na lista, marcada como tal e desmarcável (o `unlink` não valida situação);
+      inativa sem vínculo não é oferecida, porque o `link` a recusa
 - ❌ Trocar a foto de **outro** funcionário — não existe na API: `PATCH /employees/update-image` resolve o
       funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
@@ -194,9 +215,10 @@
 - [x] Listar (`GET /rooms/get-all`) — tabela com sala (ladrilho, nome com a UF colada `SALA GTI · MA` e
       descrição na mesma célula), tempo padrão, **equipe**, **estações**, situação e data de criação, com
       busca e paginação no cliente (a rota devolve tudo de uma vez). A primitiva `DataTable` (TanStack v9)
-      nasceu no design system para as outras quatro áreas reusarem. A busca cobre nome, UF ou descrição — a
-      UF entra porque é por ela que se confere um estado inteiro de uma vez, que é como o cadastro errado
-      se revela. A equipe usa os mesmos rostos e as mesmas cores da tabela de colaboradores, e a API já
+      nasceu no design system para as outras quatro áreas reusarem. A busca cobre **nome ou descrição** — os
+      dois campos da célula da sala. A UF saiu da busca na change `esqueleto-e-buscas-das-tabelas`: com duas
+      letras ela casa com meia tabela ("MA" acha "SALA DE REUNIÃO") e escondia o resultado procurado em vez
+      de estreitá-lo. Ela continua ao lado do nome, que é onde o cadastro errado se revela. A equipe usa os mesmos rostos e as mesmas cores da tabela de colaboradores, e a API já
       filtra dali os desligados, então a coluna é a equipe em exercício. As estações mostram a contagem e,
       quando houver, quantas estão em manutenção — ocupação fica de fora de propósito: manutenção é condição
       de inventário, ocupação é estado do momento e pertence ao painel. Sala sem máquina alguma diz isso
@@ -219,9 +241,11 @@
 ### Computadores
 - [x] Listar (`GET /computers/get-all`) — tabela com estação (ladrilho, `ESTAÇÃO-01` e descrição na mesma
       célula), sala vinculada, **código MAC em destaque**, **versão do Desktop**, situação e data de
-      criação, com busca e paginação no cliente pelo `DataTable`, como em Salas. A busca cobre **sala,
-      descrição ou MAC** porque a rota filtra por `roomId` e `description`, mas não por nome de sala nem por
-      MAC, e devolve o inventário inteiro de uma vez. O MAC vira ficha monoespaçada — `font-mono` e não
+      criação, com busca e paginação no cliente pelo `DataTable`, como em Salas. A busca cobre **sala ou
+      descrição** porque a rota filtra por `roomId` e `description`, mas não por nome de sala, e devolve o
+      inventário inteiro de uma vez. O MAC saiu da busca na change `esqueleto-e-buscas-das-tabelas`:
+      dezessete caracteres que ninguém digita de cabeça — ele está na tela para ser conferido, não
+      procurado. O MAC vira ficha monoespaçada — `font-mono` e não
       `tabular-nums`, porque o código tem letras e só a monoespaçada alinha a coluna para conferir caractere
       a caractere — e é exibido **sem transformação**: a API o guarda como texto opaco e casa byte a byte no
       registro do WebSocket, então mostrar caixa diferente enganaria quem compara com a configuração da

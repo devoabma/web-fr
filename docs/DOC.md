@@ -279,7 +279,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
-| `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral. **Ainda sem listagem** — quem cadastra não vê o resultado na tela. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
+| `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral e gestão das salas vinculadas. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/printers`, `/releases` | — | **linkadas pela sidebar, não existem** |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
@@ -306,6 +306,15 @@ O `(private)/layout.tsx` monta o shell em **"T"**: a barra superior (`panel-head
 inteira e, abaixo dela, a navegação lateral (`panel-sidebar/`) e a área de conteúdo com rolagem própria. A
 marca do produto mora na barra superior — assim continua visível com a sidebar recolhida à faixa de ícones —
 e aponta para `/panel`, não para a landing.
+
+A moldura é **flutuante** desde a change `painel-flutuante`: o fundo do painel tem o tom da navegação e a
+área de conteúdo aparece como ilha, com cantos arredondados, sombra e respiro. No desktop isso é o
+`variant="inset"` que a primitiva já trazia e estava desligado; abaixo de 768px as classes equivalentes são
+declaradas no layout, porque as da primitiva começam em `md:`. Duas armadilhas do caminho ficaram
+registradas em comentário no código: a cor de fundo do wrapper vem de um seletor `has-data-[variant=inset]`
+que **não casa no mobile** (lá a navegação vive num portal, fora do wrapper), e o `overflow-hidden` da ilha
+é o que impede o conteúdo rolado de passar por cima do canto arredondado. A barra superior perdeu a borda
+inferior junto: com o fundo na mesma cor dela, a linha vira um risco atravessando a tela.
 
 A navegação mora em `panel-sidebar/nav-items.tsx`, declarada como dado (`NAV_SECTIONS`) em duas seções —
 Operação e Administração. O corte por `role` é um `filter` sobre esse array: a seção marcada com
@@ -337,8 +346,8 @@ padrão para o grupo inteiro, então um `title: 'Painel'` ali faria toda rota pr
 título errado até alguém lembrar de sobrescrevê-lo. O template `%s • Sala Livre` fica no layout raiz —
 layout define template, rota define nome.
 
-> ⚠️ **`src/components/ui/sidebar.tsx` não é mais a primitiva original.** Três alterações locais sustentam
-> o arranjo em "T" e um `shadcn add sidebar` desfaz as três:
+> ⚠️ **`src/components/ui/sidebar.tsx` não é mais a primitiva original.** Quatro alterações locais sustentam
+> o arranjo em "T" e um `shadcn add sidebar` desfaz as quatro:
 >
 > 1. **`--sidebar-offset`** — o container da sidebar é `fixed` e passaria por baixo do header. A variável
 >    é declarada no provider com padrão `0rem` (arranjo padrão do shadcn preservado) e sobrescrita pelo
@@ -348,10 +357,32 @@ layout define template, rota define nome.
 > 2. **`TooltipProvider` com `delay={0}`** — no modo de faixa de ícones o tooltip é o único rótulo do item,
 >    e o padrão do base-ui é 600ms de espera.
 > 3. **Posicionamento `top`/`bottom`** no lugar de `inset-y-0`.
+> 4. **O ramo mobile usa `Drawer`, não `Sheet`** — painel flutuante com arrasto, igual aos formulários. O
+>    `Sheet` deixou de ser usado no projeto por causa disso; o componente foi mantido por ser peça da
+>    biblioteca de interface, não código morto de aplicação.
 
-O `SidebarTrigger` da barra superior existe só abaixo de 768px (`md:hidden`), onde a sidebar vira `Sheet`.
-Sem ele a navegação só abria por `Ctrl/Cmd+B` — atalho que não existe no toque, justamente o contexto dessas
-larguras.
+O `SidebarTrigger` da barra superior existe só abaixo de 768px (`md:hidden`), onde a sidebar vira painel
+sobreposto. Sem ele a navegação só abria por `Ctrl/Cmd+B` — atalho que não existe no toque, justamente o
+contexto dessas larguras.
+
+Abaixo de 768px a sidebar é o **mesmo `Drawer` dos formulários administrativos**, e não mais o `Sheet`
+genérico: painel flutuante com respiro de `0.75rem`, cantos arredondados e **fechamento por arrasto**, que
+num menu de navegação é o gesto que se tenta primeiro. Dois detalhes vieram junto — a largura precisa de `!`
+porque o `DrawerContent` declara a sua num seletor `data-[swipe-axis=x]:sm:` mais específico, e a faixa
+mobile (< 768px) atravessa esse `sm:`; e `--drawer-bleed-background` precisa ir a `transparent`, senão a
+faixa que o `::after` pinta para fora da borda aparece como um risco dentro do respiro.
+
+> ⚠️ **Escolher uma área fecha o menu — só no mobile.** O painel cobre o conteúdo, então navegar sem fechá-lo
+> deixava a página escolhida atrás do próprio menu, e o toque parecia não ter funcionado. `NavItems` chama
+> `setOpenMobile(false)` no clique, guardado por `isMobile`: no desktop a navegação tem coluna própria e
+> fechá-la a cada clique seria perder o menu sem motivo.
+
+**A marca é ancorada à coluna da navegação** (`panel-header/panel-brand.tsx`). Ela ocupa exatamente a
+largura da coluna e o símbolo cai na mesma vertical dos ícones do menu: o botão de um item começa a 16px da
+borda (8px do respiro do `inset` + 8px do `px-2` do `SidebarContent`) e mede 32px, que é o tamanho do
+`BrandMark` — alinhar as caixas alinha também os centros, nos dois estados. Recolhida a navegação, o bloco
+encolhe para os mesmos 4rem e o símbolo **não sai do lugar**. Por isso a barra superior ganhou `md:pl-0`: é
+a marca que paga o recuo da esquerda, para medir a partir da borda da tela.
 
 > ⚠️ **O `PanelHeader` é Server Component e precisa continuar sendo.** Quem consulta o perfil é
 > `panel-header/panel-user.tsx`, uma ilha cliente. Subir o `useQuery` para o header — e com ele um
@@ -359,6 +390,10 @@ larguras.
 > `SidebarTrigger`**: abaixo de 768px o usuário fica sem nenhum caminho para abrir a navegação, e o
 > conteúdo salta quando a barra reaparece. O estado de carregamento pertence ao bloco de usuário, com
 > `skeleton` do tamanho final.
+>
+> A marca (`panel-brand.tsx`) é a **segunda** ilha cliente da barra, pelo mesmo raciocínio: a largura dela
+> depende de a navegação estar recolhida — informação que só o contexto da sidebar tem e nenhuma media query
+> alcança. Cliente é o pedaço, não a barra.
 
 `GET /employees/profile` declara **`imageUrl` anulável** — funcionário sem foto cadastrada. O bloco de
 usuário usa `Avatar`/`AvatarImage`/`AvatarFallback` do base-ui em vez de `next/image`: o primitivo troca
@@ -787,7 +822,7 @@ declara o próprio título.
 
 Primeira área administrativa a existir de fato. A tela tem o cabeçalho
 da área, um painel lateral (`Sheet`) com o formulário de nova sala e a **tabela das salas cadastradas**, com
-busca por nome, paginação, edição em diálogo e a alternância entre ativa e inativa. O ciclo da sala está
+busca por nome ou descrição, paginação, edição em diálogo e a alternância entre ativa e inativa. O ciclo da sala está
 fechado: criar, ver, corrigir e tirar de operação sem sair da tela.
 
 Sala é a raiz do modelo: computador pertence a uma sala, funcionário é vinculado a salas, sessão de advogado
@@ -846,8 +881,10 @@ estado dela, e ninguém percebe até uma sala inteira estar parada numa versão 
 > apresenta o separador sem sigla e a edição abre com o seletor vazio, travando no envio. Degrada, não
 > quebra — mas é uma janela de confusão evitável.
 
-> ⚠️ **A busca da tabela não alcança a sigla.** Filtrar `MA` no mesmo campo casaria com "SALA MANHÃ".
-> Auditar por estado hoje é rolar a lista; um filtro próprio ficou registrado como próximo passo.
+> ⚠️ **A busca da tabela não alcança a sigla.** A UF chegou a entrar no filtro e **saiu** na change
+> `esqueleto-e-buscas-das-tabelas`: com duas letras ela casa com meia tabela — `MA` acha "SALA MANHÃ" e
+> "SALA DE REUNIÃO" — e alargava o resultado em vez de recortá-lo. Auditar por estado hoje é rolar a lista;
+> um filtro próprio, separado da busca de texto, ficou registrado como próximo passo.
 
 #### A unicidade da sala é do `slug`, não do nome
 
@@ -885,14 +922,25 @@ só descreve as colunas (`rooms-columns.tsx`).
 
 O TanStack Table **v9** exige declarar as features (`tableFeatures({...})`), e o tipo delas atravessa
 `ColumnDef` e `ReactTable`. Daí o arquivo `data-table-features.ts` separado: é o `DataTableFeatures` que as
-colunas de cada tela importam — inclusive o `columnMeta` (`className`, `skeletonClassName`) que alinha a
-coluna e dá o formato do esqueleto de carregamento.
+colunas de cada tela importam — inclusive o `columnMeta` (`className`, `skeletonClassName`,
+`skeletonAnchorClassName`) que alinha a coluna e dá o formato do esqueleto de carregamento.
 
 - **Esqueleto no formato da tabela, não spinner.** Um spinner centralizado troca a moldura duas vezes: some,
   entra a tabela, os cabeçalhos saltam. O placeholder usa a mesma grade de colunas.
-- **O esqueleto tem `h-5`, a altura de linha do `text-sm`.** Com `h-4` cada linha do carregamento era 4px
-  mais baixa que a definitiva, e com dez linhas a tabela encolhia 40px no instante em que os dados
-  chegavam. Parece defeito de renderização e é só o placeholder fora de medida.
+- **Quem sustenta a altura é a caixa, não o traço.** A linha do esqueleto mede `h-5` — a altura de linha do
+  `text-sm` — e o traço dentro dela mede `h-3`. Com o traço mais baixo *e* a caixa junto, cada linha do
+  carregamento ficava 4px mais curta que a definitiva e a tabela encolhia 40px quando os dados chegavam;
+  com o traço da altura inteira, o placeholder virava uma tela cinza competindo com o conteúdo que anuncia.
+  A separação resolve os dois (change `esqueleto-e-buscas-das-tabelas`).
+- **A coluna-âncora tem esqueleto composto.** As três tabelas começam com ladrilho de 32px e duas linhas de
+  texto, e é essa célula que define a altura da linha (56px contra 44px das demais). A coluna se declara
+  âncora preenchendo `skeletonAnchorClassName` — `rounded-full` em colaboradores, `rounded-md` em salas e
+  computadores — e ganha círculo/ladrilho mais duas barras. Âncora que esquecer a chave volta a encolher a
+  linha.
+- **Quatro linhas de esqueleto, não a página inteira.** O padrão era `skeletonRows = pageSize`; como o total
+  de registros só se conhece na resposta, imitar a página é chute. Quatro comunicam "é uma tabela e está
+  carregando" pela metade do espaço — e a tabela crescer quando os dados chegam não empurra para cima o que
+  já estava lido, que era o problema do encolhimento.
 - **O rodapé tem ramo de carregamento.** Sem ele, anunciaria "Total: 0 registros" para uma consulta que
   ainda nem respondeu.
 - **A contagem vem de `getPrePaginatedRowModel()`** — `getRowModel()` já veio fatiado pela página atual.
@@ -903,9 +951,8 @@ coluna e dá o formato do esqueleto de carregamento.
 > filtro — a mesma lacuna já registrada para funcionários e computadores. O filtro roda num `useMemo` sobre
 > `data.rooms`, e o `?? []` mora **dentro** dele: o TanStack memoiza o row model pela identidade de `data`, e
 > um `[]` literal no atributo seria um array novo a cada render. Como o modelo central observa essa
-> identidade, trocar a busca já devolve a paginação à primeira página sozinho. A busca cobre nome, **UF** ou
-> descrição: a UF entra porque é por ela que se confere um estado inteiro de uma vez, e é assim que o
-> cadastro errado se revela — a sala marcada fora do lugar só aparece ao lado das irmãs.
+> identidade, trocar a busca já devolve a paginação à primeira página sozinho. A busca cobre **nome ou
+> descrição** — os dois campos que a célula da sala apresenta.
 
 #### A linha mostra a equipe e o parque
 
@@ -1168,8 +1215,8 @@ sem versão é o sintoma de instalação que nunca subiu.
 
 ### Colaboradores (`/admin/employees`)
 
-Terceira e última área administrativa. Nasceu só com o formulário e fechou o ciclo nesta leva: cadastra,
-lista e já vincula salas no próprio cadastro.
+Terceira e última área administrativa, e a que fechou o ciclo por último: cadastra, lista, vincula salas no
+próprio cadastro, **edita** e **ajusta os vínculos pela listagem**.
 
 Até esta tela, criar uma conta do painel só era possível direto no banco. A única conta existente era a que
 alguém inseriu à mão.
@@ -1238,13 +1285,56 @@ formulário ganhou um combobox de seleção múltipla. Três regras do desenho:
   estado válido e recuperável pela própria tela. O erro do vínculo é comunicado sem sugerir que o cadastro
   não aconteceu.
 
-#### O que esta tela ainda não faz
+#### Editar corrige nome, e-mail e papel
 
-- **Não escolhe papel.** A rota não lê `role` do corpo; o Prisma aplica `@default(MEMBER)`. Promover alguém
-  a `ADMIN` continua sendo operação de banco — e isso é limitação da **API**, que não expõe rota para isso.
-- **Não edita nem inativa.** Os dois gatilhos já estão desenhados na coluna de ações da listagem, inertes,
-  com `aria-disabled` e dica explicando a espera — elemento `disabled` não dispara hover, e é a dica que
-  precisa aparecer.
+`PATCH /employees/update/:id` aceita corpo **parcial** com `name`, `email` e `role`, e o painel de edição
+(`update-employee.tsx`) monta esse corpo a partir de `dirtyFields`: só o que mudou viaja. Reenviar o e-mail
+intocado faria a API revalidar unicidade de um dado que ninguém tocou, e ampliaria a janela para um `400`
+sem relação com a edição em curso.
+
+O painel é lateral, e não diálogo como em salas e computadores: as três ações desta tela convivem na mesma
+linha, e a coerência que importa é a da própria tela — o cadastro daqui também é painel lateral.
+
+- **O CPF aparece bloqueado.** A rota não o aceita. Escondê-lo faria a ausência parecer esquecimento;
+  mostrá-lo travado, com a explicação no campo, responde a dúvida onde ela nasce. Corrigir CPF continua
+  sendo operação de banco.
+- **O papel entrou na tela pela edição.** O cadastro segue sem escolha (a rota de criação não lê `role`, e o
+  Prisma aplica `@default(MEMBER)`), mas promover alguém a `ADMIN` **deixou de ser operação de banco**: é
+  aqui.
+- **O administrador não altera o próprio papel.** A `api-fr` permite; quem impede é a tela. Rebaixar-se tira
+  o acesso à área administrativa na hora — inclusive a este painel, que seria o único caminho de volta.
+- **Editando a si mesmo, `getProfile()` também é invalidado.** Nome e e-mail do usuário logado estão no
+  cabeçalho: salvar a correção e continuar vendo o dado antigo faria duvidar de que gravou.
+
+> ⚠️ **Ativar/inativar colaborador continua de fora.** `PATCH /employees/activate/:id` e `/deactivate/:id`
+> existem e estão registradas nas rotas da API; a coluna Situação segue só exibindo.
+
+#### As salas do colaborador se ajustam pela listagem
+
+`manage-employee-rooms.tsx` abre com as salas atuais marcadas: marcar vincula, desmarcar desvincula, um
+botão grava. O desenho inteiro é ditado pelo que as duas rotas recusam.
+
+- **O envio é o delta, não a seleção.** `link-with-rooms` responde `400` — *"As salas X, Y já foram
+  vinculadas ao funcionário."* — quando o corpo traz uma sala já vinculada. Mandar a seleção inteira
+  derrubaria o salvamento em toda edição. O painel compara com `employeesRooms` e monta dois corpos
+  disjuntos.
+- **`link` roda antes de `unlink`.** As duas chamadas não compartilham transação. `link` é a que valida
+  (sala inativa, sala inexistente, vínculo repetido) e a que costuma falhar; caindo ela primeiro, nada foi
+  removido e o colaborador continua como estava.
+- **Sucesso parcial é anunciado como tal.** Se o `link` passou e o `unlink` caiu, o estado no servidor é
+  real e incompleto: o painel invalida as listas e avisa o que entrou e o que não saiu, em vez de fechar
+  calado.
+- **Sala inativa já vinculada continua na lista**, marcada como tal e desmarcável — o `unlink` não valida
+  situação. Escondê-la faria o painel abrir sem um vínculo que existe, e salvar qualquer outra mudança a
+  mandaria para o `unlink` sem ninguém ter pedido. Inativa **sem** vínculo não é oferecida, porque o `link`
+  a recusa.
+- **Os nomes das salas vêm de duas fontes.** Os vínculos atuais já chegam nomeados em `employeesRooms`; o
+  catálogo (`GET /rooms/get-all`) só é buscado ao abrir, para oferecer as salas que faltam. Sem esse
+  fallback o primeiro quadro mostraria marcadores em branco — e marcador vazio parece vínculo corrompido.
+
+> ⚠️ **Não existe rota de sincronizar salas.** Ajustar vínculos custa duas requisições sem transação comum.
+> A ordem escolhida torna a falha do primeiro passo inofensiva; a do segundo deixa o estado incompleto, e aí
+> quem conta a verdade é o aviso.
 
 #### A listagem
 
@@ -1264,9 +1354,8 @@ sem distinguir qual importa. O violeta foi escolhido porque a paleta do painel j
 esmeralda é ativo, rosa é ocupado, âmbar é aviso. Papel não é estado nem alerta.
 
 > ⚠️ **A listagem não mostra as salas vinculadas, de propósito.** O campo `employeesRooms` vem do servidor
-> (change `list-employee-linked-rooms` na API) e alimenta o **diálogo**, não a coluna: vínculo é coisa que
-> se edita, não que se confere de relance. E o diálogo precisa dele — `link-with-rooms` **derruba o lote
-> inteiro com `400`** se qualquer sala do payload já estiver vinculada, então só dá para enviar o delta.
+> (change `list-employee-linked-rooms` na API) e alimenta o **painel de vínculos**, não a coluna: vínculo é
+> coisa que se edita, não que se confere de relance. E o painel depende dele para calcular o delta.
 
 ---
 
