@@ -9,6 +9,8 @@ interface CreateEmployeeRequest {
 
 interface CreateEmployeeResponse {
   message: string
+  /** Id do colaborador recém-criado — é o que permite vincular as salas na sequência, sem reconsultar a listagem. */
+  employeeId: string
 }
 
 export async function createEmployee({ name, cpf, email, password }: CreateEmployeeRequest): Promise<CreateEmployeeResponse> {

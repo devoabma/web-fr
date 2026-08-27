@@ -18,7 +18,13 @@ interface UpdateRoomResponse {
   message: string
 }
 
-export async function updateRoom({ roomId, name, uf, standardTime, description }: UpdateRoomRequest): Promise<UpdateRoomResponse> {
+export async function updateRoom({
+  roomId,
+  name,
+  uf,
+  standardTime,
+  description,
+}: UpdateRoomRequest): Promise<UpdateRoomResponse> {
   const response = await API.patch<UpdateRoomResponse>(`/rooms/update/${roomId}`, {
     name,
     uf,

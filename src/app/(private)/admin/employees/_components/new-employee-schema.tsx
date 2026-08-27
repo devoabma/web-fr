@@ -8,6 +8,11 @@ const newEmployeeFormSchema = z.object({
   cpf: cpfSchema,
   email: z.email('E-mail inválido.').trim().toLowerCase(),
   password: z.string('Senha obrigatória').trim().min(8, 'Senha mínima de 8 caracteres'),
+  /**
+   * Opcional: o vínculo com salas é uma conveniência do cadastro, não um requisito dele. Vazio
+   * significa "cadastra e pronto" — o admin vincula depois pela listagem.
+   */
+  roomIds: z.array(z.string()),
 })
 
 export type NewEmployeeFormType = z.infer<typeof newEmployeeFormSchema>
@@ -20,6 +25,7 @@ export function useNewEmployeeForm() {
       cpf: '',
       email: '',
       password: '',
+      roomIds: [],
     },
   })
 }

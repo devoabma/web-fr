@@ -52,7 +52,11 @@ export function UpdateComputer({ computer }: UpdateComputerProps) {
     formState: { errors, isDirty },
   } = useUpdateComputerForm(computerFormValues)
 
-  const { data, isPending: isLoadingRooms, isError: hasRoomsError } = useQuery({
+  const {
+    data,
+    isPending: isLoadingRooms,
+    isError: hasRoomsError,
+  } = useQuery({
     queryKey: queryKeys.getRooms(),
     queryFn: getAllRooms,
   })
@@ -63,8 +67,7 @@ export function UpdateComputer({ computer }: UpdateComputerProps) {
   // A sala atual entra na lista mesmo inativa. Sem isso, a máquina que está justamente numa sala desativada
   // abriria o seletor sem valor algum, e a edição pareceria quebrada antes de o usuário tocar em nada.
   const currentRoom = rooms.find(room => room.id === computer.room.id)
-  const selectableRooms =
-    currentRoom && currentRoom.inactive !== null ? [currentRoom, ...activeRooms] : activeRooms
+  const selectableRooms = currentRoom && currentRoom.inactive !== null ? [currentRoom, ...activeRooms] : activeRooms
 
   const roomId = useWatch({ control, name: 'roomId' })
 
@@ -227,7 +230,9 @@ export function UpdateComputer({ computer }: UpdateComputerProps) {
                 ) : hasRoomsError ? (
                   <FieldDescription>Não foi possível carregar as salas. Recarregue a página e tente de novo.</FieldDescription>
                 ) : (
-                  isMovingRoom && <FieldDescription>A máquina sai da {computer.room.name} e passa a valer na sala escolhida.</FieldDescription>
+                  isMovingRoom && (
+                    <FieldDescription>A máquina sai da {computer.room.name} e passa a valer na sala escolhida.</FieldDescription>
+                  )
                 )}
               </Field>
 

@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { queryKeys } from '@/constants/query-keys'
-import { type Uf, UF_NAMES, UFS } from '@/constants/ufs'
+import { UF_NAMES, UFS, type Uf } from '@/constants/ufs'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import type { RoomProps } from '@/server/rooms/get-all'
 import { updateRoom } from '@/server/rooms/update'

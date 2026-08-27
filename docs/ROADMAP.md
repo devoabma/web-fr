@@ -164,7 +164,13 @@
 ## 5. Gestão (ADMIN)
 
 ### Funcionários
-- [ ] Listar (`GET /employees/get-all`) — **sem paginação na API**
+- [x] Listar (`GET /employees/get-all`) — tabela com colaborador (avatar com iniciais coloridas, nome e
+      e-mail na mesma célula), CPF pontuado, papel, situação e data de criação, com busca e paginação no
+      cliente pelo `DataTable`, como nas outras duas áreas. A busca cobre **nome ou CPF** e tira a pontuação
+      antes de comparar, porque a API guarda só os 11 dígitos e o usuário digita o que está vendo. A rota é
+      ADMIN-only, **não pagina e não aceita filtro algum**, então a lista vem inteira. O papel ganha ênfase
+      por contraste — administrador em violeta, colaborador achatado —, por ser quem cadastra sala, máquina
+      e outro colaborador
 - [x] Cadastrar (`POST /employees/create-account`) — painel lateral com nome, CPF, e-mail e senha inicial,
       no arranjo das outras duas áreas administrativas. O CPF reusa a máscara e a validação do login, porque
       é a mesma credencial, e vai à API só com os dígitos. Como CPF e e-mail são únicos, a recusa de `400` é
@@ -173,17 +179,29 @@
       API —, então o campo alterna Mostrar/Ocultar e recusa o preenchimento automático, que ofereceria ali
       a senha do próprio administrador logado. Não há escolha de papel: a rota não aceita, todo cadastro
       sai `MEMBER`
-- [ ] Editar (`PATCH /employees/update/:id`)
-- [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`)
-- [ ] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`)
+- [ ] Editar (`PATCH /employees/update/:id`) — gatilho já desenhado na listagem, inerte até o diálogo
+- [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`) — a situação já é exibida na listagem
+- [~] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`) — o
+      vínculo já acontece **no cadastro**, opcional, encadeado pelo `employeeId` que o `201` passou a
+      devolver (change `atomic-employee-account-creation` na API). Só as salas ativas são oferecidas,
+      porque a rota recusa sala inativa com `400`. Falta o diálogo de gerenciamento a partir da listagem,
+      que precisa calcular o delta contra o estado atual: `link-with-rooms` **derruba o lote inteiro com
+      `400`** se qualquer sala do payload já estiver vinculada
 - ❌ Trocar a foto de **outro** funcionário — não existe na API: `PATCH /employees/update-image` resolve o
       funcionário pelo próprio token (`getIdCurrentEmployee`), então cada um só troca a sua. Feito na seção 2
 
 ### Salas
-- [x] Listar (`GET /rooms/get-all`) — tabela com nome (com a UF colada: `SALA GTI · MA`), tempo padrão,
-      descrição, situação e data de criação, busca por nome e paginação no cliente (a rota devolve tudo de
-      uma vez). A primitiva `DataTable` (TanStack v9) nasceu no design system para as outras quatro áreas
-      reusarem
+- [x] Listar (`GET /rooms/get-all`) — tabela com sala (ladrilho, nome com a UF colada `SALA GTI · MA` e
+      descrição na mesma célula), tempo padrão, **equipe**, **estações**, situação e data de criação, com
+      busca e paginação no cliente (a rota devolve tudo de uma vez). A primitiva `DataTable` (TanStack v9)
+      nasceu no design system para as outras quatro áreas reusarem. A busca cobre nome, UF ou descrição — a
+      UF entra porque é por ela que se confere um estado inteiro de uma vez, que é como o cadastro errado
+      se revela. A equipe usa os mesmos rostos e as mesmas cores da tabela de colaboradores, e a API já
+      filtra dali os desligados, então a coluna é a equipe em exercício. As estações mostram a contagem e,
+      quando houver, quantas estão em manutenção — ocupação fica de fora de propósito: manutenção é condição
+      de inventário, ocupação é estado do momento e pertence ao painel. Sala sem máquina alguma diz isso
+      explicitamente, porque o painel de operação não desenha cartão para ela e a ausência se lê como
+      "está tudo certo aqui"
 - [x] Cadastrar (`POST /rooms/create`) — painel lateral com nome, UF, tempo padrão em minutos (lido em horas
       ao lado) e descrição; a prévia do identificador mostra o `slug` que a API vai gravar, porque é ele, e
       não o nome, que decide a unicidade da sala
@@ -199,10 +217,18 @@
       pelo botão ao lado
 
 ### Computadores
-- [x] Listar (`GET /computers/get-all`) — tabela com número (`ESTAÇÃO-01`), descrição, sala vinculada, MAC,
-      situação e data de criação, com busca e paginação no cliente pelo `DataTable`, como em Salas. A busca
-      cobre **sala ou descrição** porque a rota filtra por `roomId` e `description`, mas não por nome de
-      sala, e devolve o inventário inteiro de uma vez
+- [x] Listar (`GET /computers/get-all`) — tabela com estação (ladrilho, `ESTAÇÃO-01` e descrição na mesma
+      célula), sala vinculada, **código MAC em destaque**, **versão do Desktop**, situação e data de
+      criação, com busca e paginação no cliente pelo `DataTable`, como em Salas. A busca cobre **sala,
+      descrição ou MAC** porque a rota filtra por `roomId` e `description`, mas não por nome de sala nem por
+      MAC, e devolve o inventário inteiro de uma vez. O MAC vira ficha monoespaçada — `font-mono` e não
+      `tabular-nums`, porque o código tem letras e só a monoespaçada alinha a coluna para conferir caractere
+      a caractere — e é exibido **sem transformação**: a API o guarda como texto opaco e casa byte a byte no
+      registro do WebSocket, então mostrar caixa diferente enganaria quem compara com a configuração da
+      estação. A coluna Desktop é a companheira do MAC: o código diz com qual máquina o Desktop deveria
+      falar, a versão diz se ele chegou a falar — estação cadastrada e sem versão é instalação que nunca
+      subiu. Ausência é apresentada como ausência, não como erro, e o carimbo é de **quando informou**, não
+      de "vista por último"
 - [x] Cadastrar (`POST /computers/create`) — painel lateral com sala (só as ativas), número, descrição e MAC.
       Trocar de sala sugere o próximo número livre e lista os já em uso, porque o `number` é único por sala e
       a colisão só voltaria como `400`. O MAC ganha máscara na digitação e aceita colagem com `:`, `.` ou

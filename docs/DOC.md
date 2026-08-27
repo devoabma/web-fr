@@ -890,6 +890,9 @@ coluna e dá o formato do esqueleto de carregamento.
 
 - **Esqueleto no formato da tabela, não spinner.** Um spinner centralizado troca a moldura duas vezes: some,
   entra a tabela, os cabeçalhos saltam. O placeholder usa a mesma grade de colunas.
+- **O esqueleto tem `h-5`, a altura de linha do `text-sm`.** Com `h-4` cada linha do carregamento era 4px
+  mais baixa que a definitiva, e com dez linhas a tabela encolhia 40px no instante em que os dados
+  chegavam. Parece defeito de renderização e é só o placeholder fora de medida.
 - **O rodapé tem ramo de carregamento.** Sem ele, anunciaria "Total: 0 registros" para uma consulta que
   ainda nem respondeu.
 - **A contagem vem de `getPrePaginatedRowModel()`** — `getRowModel()` já veio fatiado pela página atual.
@@ -900,7 +903,57 @@ coluna e dá o formato do esqueleto de carregamento.
 > filtro — a mesma lacuna já registrada para funcionários e computadores. O filtro roda num `useMemo` sobre
 > `data.rooms`, e o `?? []` mora **dentro** dele: o TanStack memoiza o row model pela identidade de `data`, e
 > um `[]` literal no atributo seria um array novo a cada render. Como o modelo central observa essa
-> identidade, trocar a busca já devolve a paginação à primeira página sozinho.
+> identidade, trocar a busca já devolve a paginação à primeira página sozinho. A busca cobre nome, **UF** ou
+> descrição: a UF entra porque é por ela que se confere um estado inteiro de uma vez, e é assim que o
+> cadastro errado se revela — a sala marcada fora do lugar só aparece ao lado das irmãs.
+
+#### A linha mostra a equipe e o parque
+
+Duas colunas alimentadas por dado que `GET /rooms/get-all` já devolvia e a tela descartava:
+
+- **Equipe** — fileira de avatares dos colaboradores da sala, com **os mesmos rostos e as mesmas cores** da
+  tabela de colaboradores. A cor é o que liga a mesma pessoa entre as duas telas. Excedente vira contador
+  com os nomes na dica. Antes, saber quem responde por uma sala exigia abrir `/admin/employees` e cruzar na
+  mão.
+- **Estações** — a contagem de máquinas, mais um selo âmbar quando alguma está em manutenção.
+
+A manutenção entra e a **ocupação não**, de propósito: manutenção é condição de inventário, que é o assunto
+desta tela, enquanto ocupação é estado do momento, muda enquanto se olha e já tem casa no painel de
+operação. As duas juntas transformariam a listagem administrativa num painel pela metade.
+
+> ⚠️ **A equipe é a que está em exercício, não o histórico.** A `api-fr` filtra dessa lista os colaboradores
+> inativos (`where: { employees: { inactive: null } }`), porque desligar alguém é soft delete e o vínculo
+> continua na tabela de junção. Um desligado some daqui sozinho, sem que a tela faça nada.
+
+> ⚠️ **Sala sem máquina alguma diz isso explicitamente.** O painel de operação simplesmente não desenha
+> cartão para ela — e ausência de cartão se lê como "está tudo certo aqui". Esta é a única tela onde a sala
+> vazia aparece como fato.
+
+#### As três tabelas falam a mesma língua
+
+Salas, computadores e colaboradores nasceram em momentos diferentes e cada uma resolvia identidade e
+espaçamento à sua maneira. O alinhamento vive em `components/ui/table.tsx` e nas colunas de cada tela:
+
+- **Respiro.** A célula passou de `p-2` para `px-4 py-3`, e o cabeçalho de `h-10 px-2` para `h-11 px-4`. O
+  aperto era **horizontal**: 8px de cada lado dão 16px de calha entre colunas, e a primeira encostava na
+  borda. Custo aceito: as células são `whitespace-nowrap`, então a tabela rola horizontalmente mais cedo em
+  tela estreita — o contêiner tem `overflow-x-auto`, então rola em vez de quebrar.
+- **Célula de identidade.** Cada linha abre com âncora visual, identificador e informação secundária
+  apagada logo abaixo: avatar + nome + e-mail no colaborador, ladrilho + `ESTAÇÃO-01` + descrição na
+  máquina, ladrilho + nome · UF + descrição na sala. Computadores deixou de gastar duas colunas com número
+  e descrição — ninguém procura a descrição sem antes achar a estação.
+- **A âncora da sala e da estação é neutra.** O estado tem coluna própria; colorir o ladrilho diria a mesma
+  coisa duas vezes. Só o avatar do colaborador é colorido, e por outro motivo.
+
+`getAvatarColor(id)` (em `utils/index.ts`) dá ao avatar sem foto uma cor estável de uma paleta de oito.
+
+> ⚠️ **A semente é o `id`, não o nome.** A cor existe para reencontrar a mesma pessoa correndo o olho pela
+> lista — e entre telas, porque a equipe da sala usa as mesmas cores. Se derivasse do nome, corrigir
+> "Mariana Costa" para "Mariana Costa Silva" trocaria a cor dela. Repetição a partir da nona pessoa é
+> esperada e inofensiva: a cor é pista, nunca identidade — quem identifica é o nome ao lado.
+
+> ⚠️ **As classes da paleta estão escritas por extenso.** O Tailwind lê o código como texto: um
+> `bg-${cor}-500/15` montado em runtime não existiria no CSS gerado.
 
 #### Ativar e inativar são dois componentes, não um botão com `if`
 
@@ -1081,10 +1134,32 @@ Duas diferenças em relação ao cadastro, e as duas existem por causa da API:
 
 > ⚠️ **Busca e paginação rodam no cliente.** A paginação é a do `DataTable` (10 por página, com o rodapé de
 > sempre), igual à de `/admin/rooms`. Quem não pagina é a **API**: `GET /computers/get-all` devolve o
-> inventário inteiro e aceita só `roomId` e `description` como filtro, sem cobrir **nome** de sala. Como o
-> balconista procura das duas formas ("todas as máquinas da Sala 2" e "aquela COMPUTADOR 03"), a lista vem
-> num request só e o filtro é aplicado em memória. Com inventário grande, o que pesa é o transporte, não a
-> tabela.
+> inventário inteiro e aceita só `roomId` e `description` como filtro, sem cobrir **nome** de sala nem
+> **MAC**. Como se procura das três formas ("todas as máquinas da Sala 2", "aquela COMPUTADOR 03" e o MAC
+> copiado da configuração do Desktop), a lista vem num request só e o filtro é aplicado em memória. Com
+> inventário grande, o que pesa é o transporte, não a tabela.
+
+#### O código MAC é a chave de pareamento
+
+É por ele que o Desktop se registra no WebSocket, e o servidor casa **byte a byte**. Por isso a coluna o
+trata como ficha técnica, não como texto corrido:
+
+- **`font-mono`, e não `tabular-nums`.** O código tem letras além de números, e `tabular-nums` só alinha
+  dígitos — a coluna ficava serrilhada. Monoespaçada alinha a coluna inteira, que é o que permite conferir
+  caractere a caractere.
+- **Exibido verbatim.** A `api-fr` guarda o campo como `z.string()` opaca e única, sem formato imposto. Um
+  `uppercase` cosmético mostraria na tela algo diferente do que está gravado — justo onde alguém compara com
+  a configuração da estação para descobrir por que ela não conecta.
+
+Ao lado dele, a coluna **Desktop** mostra a última versão que a estação informou. As duas são companheiras:
+o MAC diz com qual máquina o Desktop deveria falar, a versão diz se ele chegou a falar. Estação cadastrada e
+sem versão é o sintoma de instalação que nunca subiu.
+
+> ⚠️ **Ausência de versão não é erro**, e o carimbo não é "vista por último". Sem versão significa que a
+> estação não conectou desde que a `api-fr` passou a guardar o dado, ou que o envio está desligado na
+> configuração local dela. E a versão só trafega no `register` do WebSocket, isto é, a cada conexão: máquina
+> que não cai há semanas mantém carimbo antigo **estando no ar**. Quem responde "está online agora" é
+> `GET /computers/online`.
 
 > ⚠️ **A colisão de `number` continua possível.** A sugestão do próximo livre reduz a chance, mas duas abas
 > cadastrando na mesma sala ainda colidem — quem recusa é o `400`.
@@ -1093,9 +1168,8 @@ Duas diferenças em relação ao cadastro, e as duas existem por causa da API:
 
 ### Colaboradores (`/admin/employees`)
 
-Terceira e última área administrativa. Ao contrário das outras duas, **nasceu só com o formulário**: a tela
-cadastra, mas ainda não lista. É a mesma situação em que `/admin/rooms` ficou por um ciclo — quem cadastra
-não vê o resultado, e não há como conferir quem já existe antes de tentar.
+Terceira e última área administrativa. Nasceu só com o formulário e fechou o ciclo nesta leva: cadastra,
+lista e já vincula salas no próprio cadastro.
 
 Até esta tela, criar uma conta do painel só era possível direto no banco. A única conta existente era a que
 alguém inseriu à mão.
@@ -1148,15 +1222,51 @@ escrito — um engano não tranca ninguém, o colaborador recebe a senha errada 
 > digitado errado passa por todas as validações — é um endereço válido, só não é o dela — e, sem listagem,
 > esse é o único momento em que dá para notar.
 
-#### O que esta tela não faz
+#### O vínculo com salas entra no cadastro
+
+Era a pendência registrada aqui: `POST /employees/link-with-rooms` é outra rota, e o cadastro respondia
+`{ message }` **sem o `id`** do colaborador criado, então as duas chamadas não podiam ser encadeadas — para
+vincular seria preciso recarregar a listagem inteira e procurar a pessoa pelo CPF.
+
+A `api-fr` passou a devolver `employeeId` no `201` (change `atomic-employee-account-creation`), e o
+formulário ganhou um combobox de seleção múltipla. Três regras do desenho:
+
+- **É opcional.** `roomIds: []` significa "cadastra e pronto", e nenhuma segunda requisição sai. O vínculo é
+  conveniência do cadastro, não requisito dele.
+- **Só salas ativas são oferecidas**, porque `link-with-rooms` recusa sala inativa com `400`.
+- **Não é atômico**, e isso é aceito: se a criação passa e o vínculo falha, o colaborador existe sem sala —
+  estado válido e recuperável pela própria tela. O erro do vínculo é comunicado sem sugerir que o cadastro
+  não aconteceu.
+
+#### O que esta tela ainda não faz
 
 - **Não escolhe papel.** A rota não lê `role` do corpo; o Prisma aplica `@default(MEMBER)`. Promover alguém
   a `ADMIN` continua sendo operação de banco — e isso é limitação da **API**, que não expõe rota para isso.
-- **Não vincula a salas.** É `POST /employees/link-with-rooms`, outra rota, e a resposta do cadastro é
-  `{ message }` **sem o `id`** do colaborador criado: as duas chamadas não podem ser encadeadas. O
-  colaborador nasce sem sala.
-- **Não lista, não edita, não inativa.** `queryKeys.getEmployees()` já existe e já é invalidada pelo
-  cadastro, à espera da tabela.
+- **Não edita nem inativa.** Os dois gatilhos já estão desenhados na coluna de ações da listagem, inertes,
+  com `aria-disabled` e dica explicando a espera — elemento `disabled` não dispara hover, e é a dica que
+  precisa aparecer.
+
+#### A listagem
+
+Tabela no mesmo `DataTable` das outras duas áreas: colaborador (avatar com iniciais coloridas, nome e
+e-mail na mesma célula), CPF pontuado, papel, situação, data de criação e ações.
+
+`GET /employees/get-all` é **ADMIN-only, não pagina e não aceita filtro algum** — a lista vem inteira e a
+busca roda no cliente, cobrindo **nome ou CPF**.
+
+> ⚠️ **A busca tira a pontuação antes de comparar.** A API guarda e devolve só os 11 dígitos, e a coluna
+> exibe pontuado. Como o usuário digita o que está vendo, comparar os dois em bruto nunca acharia ninguém:
+> "123.456" precisa encontrar o mesmo que "123456".
+
+O papel ganha ênfase **por contraste, não por peso**: administrador em violeta com escudo, colaborador em
+cinza achatado. Dois selos de mesmo peso lado a lado se anulariam — o olho veria "tem coisa nas duas linhas"
+sem distinguir qual importa. O violeta foi escolhido porque a paleta do painel já tem recados atribuídos:
+esmeralda é ativo, rosa é ocupado, âmbar é aviso. Papel não é estado nem alerta.
+
+> ⚠️ **A listagem não mostra as salas vinculadas, de propósito.** O campo `employeesRooms` vem do servidor
+> (change `list-employee-linked-rooms` na API) e alimenta o **diálogo**, não a coluna: vínculo é coisa que
+> se edita, não que se confere de relance. E o diálogo precisa dele — `link-with-rooms` **derruba o lote
+> inteiro com `400`** se qualquer sala do payload já estiver vinculada, então só dá para enviar o delta.
 
 ---
 

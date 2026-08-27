@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { EmployeesTable } from './_components/employees-table'
 import { NewEmployee } from './_components/new-employee'
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function AdminEmployeesPage() {
         <NewEmployee />
       </header>
 
-      {/* <EmployeesTable /> */}
+      <EmployeesTable />
     </>
   )
 }

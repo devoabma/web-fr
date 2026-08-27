@@ -1,18 +1,27 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2Icon, PlusIcon } from 'lucide-react'
+import { Loader2Icon, PlusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
 import { queryKeys } from '@/constants/query-keys'
-import { type Uf, UF_NAMES, UFS } from '@/constants/ufs'
+import { UF_NAMES, UFS, type Uf } from '@/constants/ufs'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import { createRoom } from '@/server/rooms/create'
 import { formatDuration } from '@/utils'
@@ -46,12 +55,12 @@ export function NewRoom() {
     mutationFn: createRoom,
   })
 
-  function closeSheet() {
+  function closeDrawer() {
     setOpen(false)
     reset()
   }
 
-  /** Só o que o usuário dispara (ESC, clique fora, botão de fechar). O sucesso fecha por `closeSheet`. */
+  /** Só o que o usuário dispara (ESC, clique fora, arrasto, botão de fechar). O sucesso fecha por `closeDrawer`. */
   function handleOpenChange(value: boolean) {
     if (value) {
       setOpen(true)
@@ -62,7 +71,7 @@ export function NewRoom() {
     // chegaria depois, sem os dados na tela para corrigir e tentar de novo.
     if (isCreating) return
 
-    closeSheet()
+    closeDrawer()
   }
 
   async function handleCreateRoom({ name, uf, standardTime, description }: NewRoomFormType) {
@@ -80,7 +89,7 @@ export function NewRoom() {
         description: `${uf} · ${formatDuration(standardTime)} de cota por advogado.`,
       })
 
-      closeSheet()
+      closeDrawer()
     } catch (err) {
       setFocus('name')
 
@@ -95,17 +104,31 @@ export function NewRoom() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
+    <Drawer open={open} onOpenChange={handleOpenChange} swipeDirection="right">
+      <DrawerTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
         <PlusIcon data-icon="inline-start" /> Adicionar
-      </SheetTrigger>
+      </DrawerTrigger>
 
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Nova sala</SheetTitle>
+      {/*
+        `--drawer-inset` é a margem que descola o popup das bordas da tela — o `--closed-transform` do
+        componente já soma essa variável, então a animação de saída continua limpa. Com o painel flutuando,
+        `rounded-xl border` arredonda e contorna os quatro lados (o componente só faz o lado do arrasto) e
+        `--drawer-bleed-background` apaga a faixa que o `::after` pinta pra fora da borda: sem isso ela
+        aparece como um risco da cor do popup dentro do respiro à direita.
+        O `!` na largura é porque o componente define `--drawer-content-width` num seletor mais
+        específico (`data-[swipe-axis=x]:sm:`).
+      */}
+      <DrawerContent className="rounded-xl border shadow-lg [--drawer-bleed-background:transparent] [--drawer-inset:0.75rem] sm:[--drawer-content-width:28rem]!">
+        <DrawerHeader className="relative pb-4">
+          <DrawerTitle>Nova sala</DrawerTitle>
 
-          <SheetDescription>A sala agrupa os computadores e define o tempo padrão de cada liberação.</SheetDescription>
-        </SheetHeader>
+          <DrawerDescription>A sala agrupa os computadores e define o tempo padrão de cada liberação.</DrawerDescription>
+
+          <DrawerClose render={<Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" />}>
+            <XIcon />
+            <span className="sr-only">Fechar</span>
+          </DrawerClose>
+        </DrawerHeader>
 
         <form noValidate id="new-room-form" onSubmit={handleSubmit(handleCreateRoom)} className="flex-1 overflow-y-auto px-4">
           <FieldGroup>
@@ -224,7 +247,7 @@ export function NewRoom() {
           </FieldGroup>
         </form>
 
-        <SheetFooter className="flex w-full flex-row items-center justify-end border-t">
+        <DrawerFooter className="flex w-full flex-row items-center justify-end border-t pt-4">
           {/* Sem `disabled`, o duplo clique dispara dois POST: o segundo volta como "sala já cadastrada"
               e o usuário vê um erro para uma sala que acabou de ser criada com sucesso. */}
           <Button type="submit" form="new-room-form" className="w-full" disabled={isCreating}>
@@ -238,8 +261,8 @@ export function NewRoom() {
               </>
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

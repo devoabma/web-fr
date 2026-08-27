@@ -1,15 +1,24 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2Icon, PlusIcon } from 'lucide-react'
+import { Loader2Icon, PlusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { queryKeys } from '@/constants/query-keys'
 import { formatWaitTime, getApiErrorMessage, getRetryAfterInSeconds } from '@/lib/http/api-error'
 import { createComputer } from '@/server/computers/create'
@@ -55,12 +64,12 @@ export function NewComputer() {
     mutationFn: createComputer,
   })
 
-  function closeSheet() {
+  function closeDrawer() {
     setOpen(false)
     reset()
   }
 
-  /** Só o que o usuário dispara (ESC, clique fora, botão de fechar). O sucesso fecha por `closeSheet`. */
+  /** Só o que o usuário dispara (ESC, clique fora, arrasto, botão de fechar). O sucesso fecha por `closeDrawer`. */
   function handleOpenChange(value: boolean) {
     if (value) {
       setOpen(true)
@@ -71,7 +80,7 @@ export function NewComputer() {
     // chegaria depois, sem os dados na tela para corrigir e tentar de novo.
     if (isCreating) return
 
-    closeSheet()
+    closeDrawer()
   }
 
   /**
@@ -103,7 +112,7 @@ export function NewComputer() {
         description: `MAC ${macCode} na sala ${selectedRoom?.name}.`,
       })
 
-      closeSheet()
+      closeDrawer()
     } catch (err) {
       setFocus('macCode')
 
@@ -118,19 +127,33 @@ export function NewComputer() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
+    <Drawer open={open} onOpenChange={handleOpenChange} swipeDirection="right">
+      <DrawerTrigger render={<Button variant="default" className="w-full sm:w-auto" />}>
         <PlusIcon data-icon="inline-start" /> Adicionar
-      </SheetTrigger>
+      </DrawerTrigger>
 
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Novo computador</SheetTitle>
+      {/*
+        `--drawer-inset` é a margem que descola o popup das bordas da tela — o `--closed-transform` do
+        componente já soma essa variável, então a animação de saída continua limpa. Com o painel flutuando,
+        `rounded-xl border` arredonda e contorna os quatro lados (o componente só faz o lado do arrasto) e
+        `--drawer-bleed-background` apaga a faixa que o `::after` pinta pra fora da borda: sem isso ela
+        aparece como um risco da cor do popup dentro do respiro à direita.
+        O `!` na largura é porque o componente define `--drawer-content-width` num seletor mais
+        específico (`data-[swipe-axis=x]:sm:`).
+      */}
+      <DrawerContent className="rounded-xl border shadow-lg [--drawer-bleed-background:transparent] [--drawer-inset:0.75rem] sm:[--drawer-content-width:28rem]!">
+        <DrawerHeader className="relative pb-4">
+          <DrawerTitle>Novo computador</DrawerTitle>
 
-          <SheetDescription>
+          <DrawerDescription>
             A máquina é identificada pelo código MAC — é por ele que o Desktop pede a liberação.
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+
+          <DrawerClose render={<Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" />}>
+            <XIcon />
+            <span className="sr-only">Fechar</span>
+          </DrawerClose>
+        </DrawerHeader>
 
         <form
           noValidate
@@ -272,7 +295,7 @@ export function NewComputer() {
           </FieldGroup>
         </form>
 
-        <SheetFooter className="flex w-full flex-row items-center justify-end border-t">
+        <DrawerFooter className="flex w-full flex-row items-center justify-end border-t pt-4">
           {/* Sem `disabled`, o duplo clique dispara dois POST: o segundo volta como "MAC já cadastrado"
               e o usuário vê um erro para um computador que acabou de ser criado com sucesso. */}
           <Button type="submit" form="new-computer-form" className="w-full" disabled={isCreating || hasNoActiveRooms}>
@@ -286,8 +309,8 @@ export function NewComputer() {
               </>
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }
