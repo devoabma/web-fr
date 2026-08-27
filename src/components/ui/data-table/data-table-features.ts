@@ -16,6 +16,8 @@ import {
 export type DataTableColumnMeta = {
   className?: string
   skeletonClassName?: string
+  /** Preenchida só na coluna-âncora: desenha o ladrilho e a segunda linha de texto que dão a altura da linha. */
+  skeletonAnchorClassName?: string
 }
 
 export const features = tableFeatures({

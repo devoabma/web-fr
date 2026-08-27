@@ -22,15 +22,14 @@ export function ComputersTable() {
 
     if (!lowerSearch) return data?.computers ?? []
 
-    // Sala, descrição *ou* MAC: o balconista tanto procura "todas as máquinas da Sala 2" quanto
-    // "aquela COMPUTADOR 03" — e quem está diagnosticando estação muda chega com o MAC na mão, copiado
-    // da configuração do Desktop. A api-fr só filtra por `roomId`/`description`, então é aqui.
+    // Sala *ou* descrição: o balconista tanto procura "todas as máquinas da Sala 2" quanto "aquela
+    // COMPUTADOR 03". O MAC saiu da busca — ninguém o digita de cabeça, e ele está na tela para ser
+    // conferido byte a byte contra a configuração do Desktop, não para ser procurado.
+    // A api-fr só filtra por `roomId`/`description`, então é aqui.
     return (
       data?.computers.filter(
         computer =>
-          computer.room.name.toLowerCase().includes(lowerSearch) ||
-          computer.description.toLowerCase().includes(lowerSearch) ||
-          computer.macCode.toLowerCase().includes(lowerSearch)
+          computer.room.name.toLowerCase().includes(lowerSearch) || computer.description.toLowerCase().includes(lowerSearch)
       ) ?? []
     )
   }, [data, searchComputer])
@@ -56,7 +55,7 @@ export function ComputersTable() {
         <Computer className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
 
         <Input
-          placeholder="Buscar pela sala, pela descrição ou pelo código MAC"
+          placeholder="Buscar pela sala ou pela descrição"
           className="h-10 pl-9 placeholder:text-sm"
           value={searchComputer}
           onChange={({ target }) => setSearchComputer(target.value)}

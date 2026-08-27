@@ -15,7 +15,7 @@ interface DataTableProps<TData extends RowData> {
   isLoading?: boolean
   /** Quantidade inicial de linhas por página; o usuário troca pelo seletor do rodapé. */
   pageSize?: number
-  /** Linhas de placeholder no carregamento. Por padrão preenche a página inteira. */
+  /** Linhas de placeholder no carregamento. Poucas de propósito: o skeleton anuncia a espera, não simula a lista. */
   skeletonRows?: number
   emptyMessage?: string
 }
@@ -25,7 +25,7 @@ export function DataTable<TData extends RowData>({
   data,
   isLoading,
   pageSize = 10,
-  skeletonRows = pageSize,
+  skeletonRows = 7,
   emptyMessage = 'Nenhum registro encontrado.',
 }: DataTableProps<TData>) {
   const table = useTable({
@@ -58,15 +58,33 @@ export function DataTable<TData extends RowData>({
             {isLoading ? (
               skeletonRowKeys.map(rowKey => (
                 <TableRow key={rowKey}>
-                  {table.getVisibleLeafColumns().map(column => (
-                    <TableCell key={column.id} className={column.columnDef.meta?.className}>
-                      {/* `h-5` bate com a altura de linha do `text-sm`: skeleton mais baixo faz a tabela
-                          encolher no instante em que os dados chegam, e o salto parece defeito de render. */}
-                      <Skeleton
-                        className={cn('inline-block h-5 w-32 bg-muted-foreground/20', column.columnDef.meta?.skeletonClassName)}
-                      />
-                    </TableCell>
-                  ))}
+                  {table.getVisibleLeafColumns().map(column => {
+                    const meta = column.columnDef.meta
+
+                    // O traço é fino de propósito — o placeholder marca onde o dado vai cair, não imita o
+                    // seu peso. Quem segura a altura da linha é a caixa `h-5` (a altura de linha do
+                    // `text-sm`) e o ladrilho da âncora: sem elas a tabela encolheria e o salto na chegada
+                    // dos dados pareceria defeito de render.
+                    return (
+                      <TableCell key={column.id} className={meta?.className}>
+                        {meta?.skeletonAnchorClassName ? (
+                          <div className="inline-flex items-center gap-3">
+                            <Skeleton className={cn('size-8 shrink-0 bg-muted-foreground/20', meta.skeletonAnchorClassName)} />
+
+                            <div className="flex flex-col gap-1.5">
+                              <Skeleton className={cn('h-3 w-36 bg-muted-foreground/20', meta.skeletonClassName)} />
+
+                              <Skeleton className="h-2.5 w-24 bg-muted-foreground/15" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="inline-flex h-5 items-center">
+                            <Skeleton className={cn('h-3 w-24 bg-muted-foreground/20', meta?.skeletonClassName)} />
+                          </div>
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : table.getRowModel().rows?.length ? (

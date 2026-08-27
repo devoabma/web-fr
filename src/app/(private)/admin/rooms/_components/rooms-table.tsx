@@ -20,13 +20,15 @@ export function RoomsTable() {
   const filteredRooms = useMemo(() => {
     const lowerRoomSearch = searchRoom.trim().toLowerCase()
 
-    // Nome, UF *ou* descrição. A UF entra porque é por ela que se confere um estado inteiro de uma vez —
-    // que é como o erro de cadastro aparece: a sala marcada na UF errada só se revela ao lado das irmãs.
+    if (!lowerRoomSearch) return data?.rooms ?? []
+
+    // Nome *ou* descrição — os dois campos que aparecem na célula da sala. A UF ficou de fora: com duas
+    // letras ela casa com meia tabela ("MA" acha "SALA DE REUNIÃO"), e a busca larga escondia o resultado
+    // que o usuário procurava em vez de estreitá-lo.
     return (
       data?.rooms.filter(
         room =>
           room.name.toLowerCase().includes(lowerRoomSearch) ||
-          room.uf.toLowerCase().includes(lowerRoomSearch) ||
           (room.description?.toLowerCase().includes(lowerRoomSearch) ?? false)
       ) ?? []
     )
@@ -53,7 +55,7 @@ export function RoomsTable() {
         <DoorOpen className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
 
         <Input
-          placeholder="Buscar pelo nome da sala, pela UF ou pela descrição"
+          placeholder="Buscar pelo nome da sala ou pela descrição"
           className="h-10 pl-9 placeholder:text-sm"
           value={searchRoom}
           onChange={({ target }) => setSearchRoom(target.value)}

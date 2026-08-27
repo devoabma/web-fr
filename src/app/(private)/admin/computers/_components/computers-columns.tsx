@@ -17,7 +17,7 @@ const columnHelper = createColumnHelper<DataTableFeatures, ComputerWithRoomProps
 export const columnsComputers = columnHelper.columns([
   columnHelper.accessor('number', {
     header: 'Estação',
-    meta: { skeletonClassName: 'h-8 w-48' },
+    meta: { skeletonAnchorClassName: 'rounded-md', skeletonClassName: 'w-32' },
     // Número e descrição eram duas colunas e viraram uma célula, como o nome e o e-mail do colaborador:
     // ninguém procura "COMPUTADOR 03" sem antes achar a estação, e separá-los fazia o olho pular de uma
     // ponta à outra da linha. O ladrilho é neutro de propósito — o estado da máquina é a coluna Status,
@@ -43,11 +43,11 @@ export const columnsComputers = columnHelper.columns([
   }),
   columnHelper.accessor('room.name', {
     header: 'Sala vinculada',
-    meta: { skeletonClassName: 'w-32' },
+    meta: { skeletonClassName: 'w-28' },
   }),
   columnHelper.accessor('macCode', {
     header: 'Código MAC',
-    meta: { skeletonClassName: 'h-7 w-44' },
+    meta: { skeletonClassName: 'w-40' },
     // É a chave que casa a máquina física com o Desktop: o app se registra no WebSocket por ela, e o
     // servidor casa byte a byte. Por isso vira ficha monoespaçada em vez de texto corrido — é `font-mono`,
     // e não `tabular-nums`, porque MAC tem letra além de número e só a monoespaçada alinha a coluna
@@ -64,7 +64,7 @@ export const columnsComputers = columnHelper.columns([
   }),
   columnHelper.accessor('appVersion', {
     header: 'Desktop',
-    meta: { skeletonClassName: 'h-5 w-16 rounded-full' },
+    meta: { skeletonClassName: 'w-14 rounded-full' },
     // Companheira do MAC: o código diz com qual máquina o Desktop deveria falar, esta coluna diz se ele
     // chegou a falar. Estação cadastrada e sem versão é o sintoma de instalação que nunca subiu.
     cell: ({ row }) => {
@@ -103,7 +103,7 @@ export const columnsComputers = columnHelper.columns([
   }),
   columnHelper.accessor('maintenance', {
     header: 'Status',
-    meta: { skeletonClassName: 'h-5 w-20 rounded-full' },
+    meta: { skeletonClassName: 'w-16 rounded-full' },
     // Manutenção vence `inUse`: máquina fora de operação com a flag travada não pode aparecer como
     // ocupada, senão o balconista tenta encerrar uma sessão que não existe.
     cell: ({ row }) => {
@@ -139,7 +139,7 @@ export const columnsComputers = columnHelper.columns([
   columnHelper.display({
     id: 'actions',
     header: 'Ações',
-    meta: { className: 'text-center', skeletonClassName: 'h-7 w-16' },
+    meta: { className: 'text-center', skeletonClassName: 'w-14' },
     cell: ({ row }) => (
       <div className="flex items-center justify-center gap-1">
         <UpdateComputer computer={row.original} />

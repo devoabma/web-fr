@@ -23,7 +23,7 @@ const columnHelper = createColumnHelper<DataTableFeatures, RoomProps>()
 export const columns = columnHelper.columns([
   columnHelper.accessor('name', {
     header: 'Sala',
-    meta: { skeletonClassName: 'h-8 w-52' },
+    meta: { skeletonAnchorClassName: 'rounded-md', skeletonClassName: 'w-44' },
     // Nome e descrição na mesma célula, como o colaborador e a estação. A UF continua colada no nome, e
     // não desceu para a segunda linha, porque esta é a única tela onde dá para flagrar uma sala marcada
     // no estado errado — o sintoma do outro lado é mudo: a estação só deixa de receber a atualização.
@@ -51,13 +51,13 @@ export const columns = columnHelper.columns([
   }),
   columnHelper.accessor('standardTime', {
     header: 'Tempo padrão',
-    meta: { skeletonClassName: 'w-24' },
+    meta: { skeletonClassName: 'w-20' },
     cell: ({ getValue }) => <span className="tabular-nums">{formatMinutes(getValue())}</span>,
   }),
   columnHelper.display({
     id: 'team',
     header: 'Equipe',
-    meta: { skeletonClassName: 'h-8 w-20 rounded-full' },
+    meta: { skeletonClassName: 'w-16 rounded-full' },
     // Quem responde pela sala já vinha em `/rooms/get-all` e a tela de administração não mostrava — era
     // preciso abrir Colaboradores e cruzar na mão. Mesmos avatares e mesmas cores da tabela de
     // colaboradores, de propósito: a cor é a pista que liga a mesma pessoa entre as duas telas.
@@ -108,7 +108,7 @@ export const columns = columnHelper.columns([
   columnHelper.display({
     id: 'computers',
     header: 'Estações',
-    meta: { skeletonClassName: 'h-5 w-16 rounded-full' },
+    meta: { skeletonClassName: 'w-12 rounded-full' },
     // Sala sem máquina nenhuma não aparecia em lugar algum do painel — a de operação simplesmente não
     // desenha card, o que se lê como "está tudo certo aqui".
     //
@@ -156,7 +156,7 @@ export const columns = columnHelper.columns([
   }),
   columnHelper.accessor('inactive', {
     header: 'Status',
-    meta: { skeletonClassName: 'h-5 w-20 rounded-full' },
+    meta: { skeletonClassName: 'w-16 rounded-full' },
     cell: ({ getValue }) =>
       getValue() ? (
         <Badge variant="destructive">
@@ -183,7 +183,7 @@ export const columns = columnHelper.columns([
   columnHelper.display({
     id: 'actions',
     header: 'Ações',
-    meta: { className: 'text-center', skeletonClassName: 'h-7 w-16' },
+    meta: { className: 'text-center', skeletonClassName: 'w-14' },
     cell: ({ row }) => {
       const room = row.original
 
