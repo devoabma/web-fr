@@ -11,25 +11,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { queryKeys } from '@/constants/query-keys'
 import { getAllPrinters } from '@/server/printers/get-all'
 import { getAllRooms } from '@/server/rooms/get-all'
-import { PERIOD_LABELS, type Period, PeriodFilter } from './period-filter'
+import { createPeriodMatcher } from '../../_components/shared/filters/match-period'
+import { PERIOD_LABELS, type Period, PeriodFilter } from '../../_components/shared/filters/period-filter'
+import { ALL_ROOMS, RoomFilter } from '../../_components/shared/filters/room-filter'
 import { columnsPrinters } from './printers-columns'
-import { ALL_ROOMS, RoomFilter } from './room-filter'
 
 /**
- * `en-CA` formata como `2026-08-27`, que compara e ordena como texto — é o que deixa "últimos 7 dias"
- * ser um `>=` de strings. O fuso é o da Seccional: o corte do dia tem de ser a meia-noite do balcão,
- * não a de quem está com o navegador em outro lugar.
+ * O arquivo some na limpeza de sexta-feira, então "todo o período" aqui é uma janela de dias — e
+ * dizer "em todo o período" prometeria um histórico que a tela não tem.
  */
-const dayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  timeZone: 'America/Fortaleza',
-})
+const PRINTER_PERIOD_LABELS: Record<Period, string> = { ...PERIOD_LABELS, all: 'desde a última limpeza' }
 
-const MS_IN_DAY = 86_400_000
-
-export function PrintersBoard() {
+export function PrintersTable() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -72,23 +65,10 @@ export function PrintersBoard() {
   const filteredPrinters = useMemo(() => {
     const lowerSearch = search.trim().toLowerCase()
 
-    const now = Date.now()
-
-    const today = dayKeyFormatter.format(now)
-    const yesterday = dayKeyFormatter.format(now - MS_IN_DAY)
-    // Sete dias contando com o de hoje, senão "últimos 7 dias" mostraria oito.
-    const weekStart = dayKeyFormatter.format(now - 6 * MS_IN_DAY)
+    const matchesPeriod = createPeriodMatcher(period)
 
     return printers.filter(printer => {
-      const day = dayKeyFormatter.format(new Date(printer.createdAt))
-
-      const matchesPeriod =
-        period === 'all' ||
-        (period === 'today' && day === today) ||
-        (period === 'yesterday' && day === yesterday) ||
-        (period === 'last-7-days' && day >= weekStart)
-
-      if (!matchesPeriod) return false
+      if (!matchesPeriod(printer.createdAt)) return false
 
       if (!lowerSearch) return true
 
@@ -160,16 +140,21 @@ export function PrintersBoard() {
   }
 
   if (printers.length > 0 && period !== 'all') {
-    emptyMessage = `Nenhuma impressão ${PERIOD_LABELS[period]}${searchTerm ? ' combina com a busca' : ''}. Amplie o período${searchTerm ? ' ou limpe a busca' : ''} para ver o restante.`
+    emptyMessage = `Nenhuma impressão ${PRINTER_PERIOD_LABELS[period]}${searchTerm ? ' combina com a busca' : ''}. Amplie o período${searchTerm ? ' ou limpe a busca' : ''} para ver o restante.`
   }
 
   return (
     <>
       <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-xs">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <RoomFilter rooms={rooms} value={selectedRoomId ?? ALL_ROOMS} onValueChange={handleSelectRoom} />
+          <RoomFilter
+            rooms={rooms}
+            value={selectedRoomId ?? ALL_ROOMS}
+            onValueChange={handleSelectRoom}
+            allRoomsDescription="Todas as impressões que você tem permissão para ver"
+          />
 
-          <PeriodFilter value={period} onValueChange={setPeriod} />
+          <PeriodFilter value={period} onValueChange={setPeriod} allPeriodDescription="Tudo o que sobrou desde a última limpeza" />
 
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="search-printer" className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -199,7 +184,7 @@ export function PrintersBoard() {
         ) : (
           <p className="text-right text-muted-foreground text-xs">
             <span className="font-semibold text-foreground tabular-nums">{String(filteredPrinters.length).padStart(2, '0')}</span>{' '}
-            {filteredPrinters.length === 1 ? 'impressão' : 'impressões'} {PERIOD_LABELS[period]}
+            {filteredPrinters.length === 1 ? 'impressão' : 'impressões'} {PRINTER_PERIOD_LABELS[period]}
             {/* Só faz sentido comparar com o total quando algum filtro está escondendo alguma coisa. */}
             {filteredPrinters.length !== printers.length && ` · ${printers.length} no total`}
           </p>

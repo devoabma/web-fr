@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PrintersBoard } from './_components/printers-board'
 import { PrintersNotice } from './_components/printers-notice'
+import { PrintersTable } from './_components/printers-table'
 
 export const metadata: Metadata = {
   title: 'Impressões',
@@ -22,7 +22,7 @@ export default function PrintersPage() {
       <PrintersNotice />
 
       <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
-        <PrintersBoard />
+        <PrintersTable />
       </Suspense>
     </>
   )

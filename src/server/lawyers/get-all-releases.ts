@@ -3,7 +3,6 @@ import { API } from '@/lib/axios'
 export type ReleaseProps = {
   id: string
   startDate: string
-  /** `null` marca a sessão em curso — é assim que se sabe quem está na máquina agora. */
   endDate: string | null
   lawyer: {
     id: string
@@ -28,14 +27,19 @@ export interface GetAllReleasesResponse {
 }
 
 /**
- * Sessões de liberação da sala.
+ * Sessões de liberação, já ordenadas da mais nova para a mais antiga.
  *
- * A rota devolve o **histórico inteiro** ordenado por `startedAt desc`, não só as sessões abertas —
- * quem filtra `endDate === null` é o front. Sem `roomId` viriam as sessões de todas as salas visíveis
- * ao funcionário, então o painel sempre passa a sala selecionada.
+ * A rota devolve o **histórico inteiro**, não só as sessões abertas — quem filtra `endDate === null`
+ * é o front, e é o que o painel de operação faz para saber quem está usando cada máquina. A tela de
+ * auditoria usa a lista como ela vem.
+ *
+ * O escopo por papel é resolvido na api-fr: ADMIN enxerga todas as salas, MEMBER só as salas em que
+ * está vinculado. Sem `roomId` a rota devolve tudo o que aquele funcionário pode ver — é isso que a
+ * opção "Todas as salas" da auditoria usa. O painel de operação, que trabalha uma sala por vez,
+ * sempre passa a sala selecionada.
  */
-export async function getAllReleases(roomId: string): Promise<GetAllReleasesResponse> {
-  const response = await API.get<GetAllReleasesResponse>(`/lawyers/get-all-releases/${roomId}`)
+export async function getAllReleases(roomId?: string): Promise<GetAllReleasesResponse> {
+  const response = await API.get<GetAllReleasesResponse>(`/lawyers/get-all-releases${roomId ? `/${roomId}` : ''}`)
 
   return response.data
 }

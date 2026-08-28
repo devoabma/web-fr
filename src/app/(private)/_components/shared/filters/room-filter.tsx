@@ -6,9 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { RoomProps } from '@/server/rooms/get-all'
 
 /**
- * Valor do item "todas": a rota de impressões trata a ausência de sala como "tudo o que este
- * funcionário pode ver", então este id de mentira nunca viaja para a api-fr — ele só existe para o
- * `Select`, que precisa de um `value` em cada item, e para a URL.
+ * Valor do item "todas": tanto a rota de impressões quanto a de liberações tratam a ausência de sala
+ * como "tudo o que este funcionário pode ver", então este id de mentira nunca viaja para a api-fr —
+ * ele só existe para o `Select`, que precisa de um `value` em cada item, e para a URL.
  */
 export const ALL_ROOMS = 'all'
 
@@ -16,9 +16,11 @@ interface RoomFilterProps {
   rooms: RoomProps[]
   value: string
   onValueChange: (roomId: string) => void
+  /** O que "todas as salas" significa nesta tela — cada histórico mostra uma coisa diferente. */
+  allRoomsDescription: string
 }
 
-export function RoomFilter({ rooms, value, onValueChange }: RoomFilterProps) {
+export function RoomFilter({ rooms, value, onValueChange, allRoomsDescription }: RoomFilterProps) {
   return (
     <div className="flex w-full flex-col gap-2">
       <Label htmlFor="room" className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -39,9 +41,7 @@ export function RoomFilter({ rooms, value, onValueChange }: RoomFilterProps) {
           <SelectItem value={ALL_ROOMS} className="py-2">
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate font-medium">Todas as salas</span>
-              <span className="line-clamp-2 whitespace-normal text-muted-foreground text-xs">
-                Todas as impressões que você tem permissão para ver
-              </span>
+              <span className="line-clamp-2 whitespace-normal text-muted-foreground text-xs">{allRoomsDescription}</span>
             </div>
           </SelectItem>
 
