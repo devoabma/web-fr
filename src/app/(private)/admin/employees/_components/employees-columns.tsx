@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import type { EmployeeProps } from '@/server/employees/get-all'
 import { getAvatarColor, getInitials } from '@/utils'
 import { maskCpf } from '@/utils/masks/cpf'
+import { ActivateEmployee } from './activate-employee'
+import { InactiveEmployee } from './inactive-employee'
 import { ManageEmployeeRooms } from './manage-employee-rooms'
 import { UpdateEmployee } from './update-employee'
 
@@ -85,12 +87,19 @@ export const columnsEmployees = columnHelper.columns([
     id: 'actions',
     header: 'Ações',
     meta: { className: 'text-center', skeletonClassName: 'w-14' },
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center gap-1">
-        <UpdateEmployee employee={row.original} />
+    cell: ({ row }) => {
+      const employee = row.original
 
-        <ManageEmployeeRooms employee={row.original} />
-      </div>
-    ),
+      return (
+        <div className="flex items-center justify-center gap-1">
+          <UpdateEmployee employee={employee} />
+
+          <ManageEmployeeRooms employee={employee} />
+
+          {/* Cada sentido do toggle é um componente próprio: rotas, confirmação e mensagens diferentes. */}
+          {employee.inactive ? <ActivateEmployee employee={employee} /> : <InactiveEmployee employee={employee} />}
+        </div>
+      )
+    },
   }),
 ])
