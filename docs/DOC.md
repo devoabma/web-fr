@@ -73,8 +73,11 @@ src/
 │       ├── profile/               # /profile — conta do funcionário, troca de senha e de foto (page + _components)
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
 │       ├── admin/computers/       # /admin/computers — cadastro, listagem, edição e exclusão (page + _components)
-│       ├── admin/employees/       # /admin/employees — cadastro de colaborador (page + _components)
+│       ├── admin/employees/       # /admin/employees — cadastro, edição, vínculos e ativar/inativar (page + _components)
+│       ├── printers/              # /printers — histórico de impressões (page + _components)
+│       ├── releases/              # /releases — histórico de liberações (page + _components + _data)
 │       └── _components/shared/
+│           ├── filters/           # sala, período e o corte de período — reusados pelas duas telas de histórico
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
@@ -86,10 +89,11 @@ src/
 │   ├── query-keys.ts              # chaves do React Query, centralizadas
 │   └── ufs.ts                     # as 27 UFs, espelho da lista fechada da api-fr
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
-│   ├── employees/                 # perfil, login, logout e troca de senha
+│   ├── employees/                 # perfil, login, logout, troca de senha, CRUD, vínculos e ativar/inactive
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
 │   ├── computers/                 # get-all, create, update, delete, conectadas e entrada/saída de manutenção
-│   └── lawyers/                   # sessões: listar, liberar e encerrar
+│   ├── printers/                  # get-all (roomId opcional no caminho)
+│   └── lawyers/                   # sessões: listar (roomId opcional), liberar e encerrar
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
 │   └── use-elapsed-minutes.ts     # minutos decorridos desde uma resposta, para o saldo andar na tela
@@ -260,7 +264,11 @@ Confirmar antes de planejar as telas correspondentes.
   download não. O `fileUrl` aponta para o Storage, em outro domínio, onde `<a download>` é ignorado pelo
   navegador: a tela **abre** o arquivo em aba nova, que é o máximo honesto daqui. Vira download de verdade
   no dia em que a `api-fr` servir o arquivo pelo próprio domínio.
-- **Relatórios** — nada implementado.
+- **Relatórios** — nada implementado. A *listagem* de sessões existe e `/releases` a consome desde
+  **2026-08-28**; o que falta são os agregados (uso por sala, impressões por advogado, tempo médio).
+- **A rota de sessões não pagina nem aceita filtro algum** — nem por advogado, nem por data, ao contrário
+  da de impressões. `/releases` filtra tudo no cliente porque não há para onde empurrar o trabalho. E o
+  aperto chega antes aqui: impressões somem toda sexta, sessões ficam para sempre.
 - **Tempo real** — o WebSocket é hoje um canal Desktop↔API. Não há eventos `computer_released` /
   `session_started`, e o canal não é autenticado. Sem eles o painel não tem como saber o que acontece fora
   dele: revalida na volta de foco e depois de cada ação, e conta o tempo da sessão no próprio navegador.
@@ -282,9 +290,9 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
-| `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral e gestão das salas vinculadas. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
+| `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral, gestão das salas vinculadas e alternância entre ativo e inativo. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/printers` | `(private)` | histórico de impressões: filtros de sala (`?sala=`), período e busca, tabela com o arquivo em aba nova e aviso do expurgo semanal. Aberta aos dois papéis — o escopo por sala é o que a `api-fr` já resolve |
-| `/releases` | — | **linkada pela sidebar, não existe** |
+| `/releases` | `(private)` | histórico de liberações: filtros de sala (`?sala=`), período, situação e busca, com o desfecho de cada sessão e a duração das abertas andando na tela. **Somente leitura** — encerrar é do painel de operação. Aberta aos dois papéis |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -1361,6 +1369,47 @@ esmeralda é ativo, rosa é ocupado, âmbar é aviso. Papel não é estado nem a
 > (change `list-employee-linked-rooms` na API) e alimenta o **painel de vínculos**, não a coluna: vínculo é
 > coisa que se edita, não que se confere de relance. E o painel depende dele para calcular o delta.
 
+#### Ativar e inativar o colaborador — o mesmo par das salas, com uma trava a mais
+
+A coluna Situação existia desde a primeira versão da tabela, mas **nada na interface a produzia**: um
+colaborador desligado continuava entrando no painel até alguém mexer no banco. `PATCH
+/employees/activate/:id` e `/deactivate/:id` já estavam registradas na `api-fr`, ADMIN-only, respondendo
+`{ message }`.
+
+O desenho é o mesmo de salas — dois componentes, um por sentido; confirmação só ao inativar; botão
+desabilitado durante a chamada para o duplo clique não virar um "Funcionário já está inativo." em vermelho
+sobre uma ação bem-sucedida.
+
+**O que salas não tinham: a trava de auto-inativação.**
+
+A API recusa com `400` quem tenta inativar o próprio cadastro — e faz sentido, senão o administrador se
+trancaria para fora do painel. Mas deixar a recusa chegar como toast transforma uma regra fixa numa
+tentativa frustrada. A tela compara o id da linha com o do `getProfile()` (leitura de cache: o cabeçalho do
+painel já buscou o perfil) e neutraliza o botão antes do clique.
+
+> ⚠️ **`aria-disabled`, não `disabled`** — e o `onClick` guardado por `!isHimself`, para o `aria-disabled`
+> não ser só cosmético. Botão `disabled` **não dispara hover** no Chrome, e o tooltip é justamente o que
+> explica por que a ação sumiu; sem isso o botão ficaria apagado, mudo e sem motivo. É o mesmo padrão de
+> `delete-computer.tsx` para a máquina em uso.
+
+> ⚠️ **A confirmação não promete uma desconexão que não acontece.** O `inactive` é verificado em
+> `core/employees/authenticate.ts`, na hora do **login** — o middleware de autenticação não o consulta. Um
+> funcionário com o painel aberto continua navegando até o JWT expirar (1 dia). Escrever "ele perde o acesso
+> agora" seria mentira verificável: bastaria o inativado apertar F5. O diálogo diz *"o bloqueio vale a partir
+> do próximo acesso"*, e o efeito imediato depende de uma denylist de token na `api-fr` — a mesma lacuna que
+> já afeta o logout e a troca de senha.
+
+A confirmação também **conta quantas salas continuam vinculadas**. O medo de quem clica em algo destrutivo é
+apagar junto o que estava ao lado; nomear o que fica responde isso antes da pergunta. Nenhum `unlink`
+acontece, o histórico permanece, e reativar devolve tudo como estava.
+
+Só `queryKeys.getEmployees()` é invalidada. O único cadastro que aparece no cabeçalho do painel é o do
+próprio administrador — e ele não pode se inativar, então o perfil não tem como ficar velho.
+
+> **Diferente de computadores, colaborador não se exclui.** Não há `DELETE /employees/:id` na `api-fr`:
+> inativar é o que existe no lugar, e é soft delete como o das salas. A máquina, essa, apaga de verdade — e
+> leva o histórico junto, por isso a confirmação dela exige digitar a descrição.
+
 ### Histórico de impressões (`/printers`)
 
 Primeira tela fora da área administrativa desde o painel de operação, e a última das cinco áreas que a
@@ -1479,6 +1528,98 @@ informa nada.
 > `api-fr` ainda devolve a lista sem paginar. Quando ela paginar, a troca acontece no `DataTable` e no
 > `queryFn`, juntos.
 
+> **Os filtros de sala e de período saíram daqui em 2026-08-28.** Eles vivem em
+> `_components/shared/filters/` e são compartilhados com `/releases`; o componente desta tela virou
+> `printers-table.tsx` ao adotá-los. Comportamento idêntico: a lista padrão de períodos não inclui os 30
+> dias (num histórico semanal, um mês nunca mudaria o resultado) e o rótulo de "todo o período" continua
+> sobrescrito aqui para "desde a última limpeza".
+
+### Histórico de liberações (`/releases`)
+
+A última rota da sidebar que ainda caía na 404. Com ela, **nenhum item da navegação aponta para o vazio**.
+
+O painel de operação responde o agora: quem está em cada máquina, quanto tempo falta. O que ele não responde
+é o depois — *aquele advogado esteve aqui ontem? quanto tempo usou? a sessão acabou por tempo ou alguém
+encerrou no balcão?* Cada uma dessas perguntas terminava no banco.
+
+**A rota já era consumida**, `GET /lawyers/get-all-releases/:roomId?`. O painel de operação a chamava com
+sala obrigatória, filtrava `endDate === null` e **jogava o resto fora**: o histórico inteiro já trafegava e
+era descartado a cada requisição. `getAllReleases` passou a aceitar `roomId` opcional, e o que era
+descartado virou a tela.
+
+#### O desfecho da sessão é derivado, não lido
+
+A `api-fr` não tem campo de status. Ela devolve `endDate` (nulo enquanto aberta) e `usedAllTime`. A pergunta
+da auditoria é outra — *como isso terminou?* — e a resposta é a combinação dos dois:
+
+| Estado | Condição | O que significa |
+| --- | --- | --- |
+| Em andamento | `endDate === null` | alguém está na máquina agora |
+| Tempo esgotado | fechada, `usedAllTime` | a API fechou sozinha no `expiresAt` |
+| Encerrada | fechada, sem `usedAllTime` | alguém interveio no balcão antes do tempo |
+
+A distinção entre os dois últimos é a que tem valor: ela separa o fluxo normal da exceção, que é exatamente
+o que se procura num histórico.
+
+> ⚠️ **Cota zerada na tela não fecha a sessão.** Ela vira `usedAllTime`, porque a API encerra por conta
+> própria quando o `expiresAt` chega e o refetch seguinte só confirma. Mas o status continua "em andamento":
+> o encerramento é da API, e anunciá-lo antes mostraria como fechada uma sessão em que ainda há alguém
+> sentado na máquina.
+
+#### A duração das sessões abertas anda sozinha
+
+`usedMinutes` e `remainingMinutes` vêm calculados do servidor e já nascem defasados. Para uma sessão fechada
+isso não importa — o número congelou junto com ela. Para uma aberta, o tempo de tela continua correndo.
+
+`buildReleaseViews` recebe os minutos decorridos desde a resposta (`useElapsedMinutes`, o mesmo hook do
+painel de operação) e desconta. O relógio da linha anda sem uma requisição por minuto na `api-fr`.
+
+#### Quatro filtros, e de novo só a sala vai para a URL
+
+Mesma regra das impressões, pelo mesmo motivo: a sala decide **o que a tela carrega**, e um link colado no
+chat do balcão tem de voltar à mesma sala. Período, situação e busca só estreitam o que já está na mão.
+
+**Sala inativa continua no seletor** — e aqui está a diferença em relação às impressões, que filtram
+`!room.inactive`. Não se imprime numa sala fora de operação; mas as sessões que aconteceram nela continuam
+sendo registro, e esconder a sala esconderia o passado dela junto. É justamente o passado que esta tela
+existe para mostrar.
+
+Isso **não** virou parâmetro do componente compartilhado. Cada tela filtra a própria lista antes de passar;
+o `RoomFilter` mostra o que recebe. Um `showInactive` embutiria no controle uma regra que é da tela.
+
+#### Os ladrilhos de contagem ignoram o filtro de situação, de propósito
+
+Os ladrilhos ("3 em andamento · 12 com tempo esgotado · 8 encerradas") contam o conjunto já estreitado por
+período e busca, mas **inteiro quanto ao estado**. Se respeitassem o filtro de situação, escolher "em
+andamento" zeraria os outros dois — e o ladrilho deixaria de ser a leitura de relance que justifica sua
+existência para virar um eco do filtro.
+
+Daí as duas etapas no componente: `scopedReleases` (período + busca) alimenta a contagem, e
+`filteredReleases` (+ situação) alimenta a tabela.
+
+#### A lista vazia tem quatro causas, e a situação fala por último
+
+Nada registrado, busca sem resultado, período sem alcance, situação inexistente no recorte. **A ordem das
+verificações importa**: a situação é o filtro mais estreito, então ela sobrescreve as outras mensagens.
+Dizer "amplie o período" quando o que zerou a lista foi pedir só as sessões em andamento mandaria a pessoa
+mexer no controle errado.
+
+#### A tela não encerra sessão
+
+O painel de operação encerra; esta lista. A tentação é óbvia — a linha "em andamento" está ali, com o botão
+a um passo — e é por isso que o aviso do topo manda usar o painel. Duas telas capazes de encerrar sessão é
+um caminho a mais para o clique errado sobre um advogado que está usando a máquina naquele instante.
+
+#### Os filtros no cliente aqui não têm prazo de validade — têm um limite
+
+Nas impressões, filtrar no cliente foi escolha sobre uma rota que **aceita** `?lawyer=`, `?startDate=` e
+`?endDate=`. Aqui a rota não aceita nada além do `roomId` no caminho, e não pagina. Não há para onde
+empurrar o trabalho: a lista chega inteira porque é assim que a API a serve.
+
+> ⚠️ **Sem expurgo e sem paginação, o histórico só cresce.** Impressões somem toda sexta; sessões ficam para
+> sempre. A paginação da tabela segura a renderização, mas a resposta inteira trafega — e o problema chega
+> antes aqui do que nas impressões.
+
 ---
 
 ## 🎨 Origem do design
@@ -1487,8 +1628,13 @@ A landing, a tela de login e a 404 derivaram do projeto **Claude Design "Sala Li
 (`c3a63c9a-47ad-47c7-8349-2d496f96c4f4`, arquivos `Sala Livre - Home`, `- Login` e `- 404`).
 Divergências deliberadas em relação ao design original:
 
-- O botão "Acessar painel" do cabeçalho foi substituído pela **logo da OAB-MA** — inclusive na 404, que
-  reaproveita o `Header` real em vez do nav próprio do design.
+- O botão "Acessar painel" do cabeçalho foi substituído pelo **espaço de marca da instituição** — inclusive
+  na 404, que reaproveita o `Header` real em vez do nav próprio do design. Desde **2026-08-28** esse espaço
+  é marca branca: o arquivo é `public/assets/logo-cliente.png`, nomeado pelo papel e não pela seccional, e o
+  que está fixo é a **altura** (`h-9 w-auto`), para qualquer proporção entrar sem esticar o cabeçalho. O
+  `alt` não nomeia instituição — envelheceria em silêncio na troca, anunciando o nome errado a quem usa
+  leitor de tela. No painel do login o `brightness-0 invert` pinta o traço de branco, e isso **depende de o
+  PNG ter fundo transparente**: com fundo opaco vira um retângulo branco sólido.
 - Ícones lucide substituem os glifos tipográficos (`⌁ ◷ ⎙ ◳`) dos cards de diferenciais.
 - Os contadores da prévia do painel são derivados dos dados, não literais.
 - Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`. O

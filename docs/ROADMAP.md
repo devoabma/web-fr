@@ -32,7 +32,11 @@
 
 ## 1. Landing pública
 
-- [x] Cabeçalho com marca do produto e logo da OAB-MA
+- [x] Cabeçalho com marca do produto e **espaço de marca branca** da instituição — o arquivo é
+      `public/assets/logo-cliente.png`, nomeado pelo papel e não pela seccional, e o que está fixo é a
+      **altura** (`h-9 w-auto`), para qualquer proporção de logo entrar sem esticar o cabeçalho. O `alt`
+      não nomeia instituição: ele envelheceria em silêncio na troca, anunciando o nome errado a quem usa
+      leitor de tela
 - [x] Hero com badge, título, subtítulo e chamada para o painel
 - [x] Prévia do painel com os três estados do computador (disponível / em uso / manutenção)
 - [x] Seção de diferenciais (4 cards)
@@ -118,9 +122,10 @@
       HTML de quem não pode vê-lo
 - [x] Título da aba declarado por rota, e não pelo `(private)/layout.tsx` — rota nova do painel deixa de
       herdar "Painel"
-- [~] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` e `/admin/computers` existem
-      (cadastro, listagem e edição, ver seção 5), `/admin/employees` lista e edita, `/printers` lista o
-      histórico de impressões (seção 6); só `/releases` ainda cai na 404
+- [x] Criar as cinco áreas que a sidebar já referencia — `/admin/rooms` e `/admin/computers` (cadastro,
+      listagem e edição, ver seção 5), `/admin/employees` (lista, edita, vincula salas e alterna a
+      situação), `/printers` (histórico de impressões, seção 6) e `/releases` (histórico de liberações,
+      seção 7). **Nenhum item da navegação cai mais na 404**
 - [ ] `loading.tsx` por área, com o `skeleton` já instalado
 - [~] Levar o hero da landing e o login para `/panel` — o login já leva; o hero continua apontando para
       `/auth/sign-in` (correto para quem não tem sessão, mas o proxy já devolveria ao painel quem tem)
@@ -198,7 +203,14 @@
       tira o acesso à área administrativa na hora, inclusive a este painel, que seria o único caminho de
       volta. Editando a si mesmo, `getProfile()` também é invalidado, senão o cabeçalho segue com o dado
       velho
-- [ ] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`) — a situação já é exibida na listagem
+- [x] Ativar / inativar (`PATCH /employees/activate/:id` e `/deactivate/:id`) — inativar pede confirmação,
+      reativar vai direto, como em Salas. A confirmação conta **quantas salas continuam vinculadas**, porque
+      o medo de quem clica é apagar o que estava junto, e diz o que de fato acontece com quem está logado:
+      a API verifica `inactive` no **login**, não no middleware, então quem está com o painel aberto segue
+      navegando até o token expirar — o bloqueio vale do próximo acesso em diante. **O administrador não
+      inativa a si mesmo**: a API recusa com `400` e a tela impede antes do clique, com `aria-disabled` (e
+      não `disabled`, que não dispara hover) para o tooltip poder explicar o motivo. Só `getEmployees` é
+      invalidado: o único cadastro do cabeçalho é o do próprio admin, e ele não pode se inativar
 - [x] Vincular / desvincular de salas (`POST /employees/link-with-rooms` e `/unlink-with-rooms`) — o
       vínculo acontece **no cadastro**, opcional, encadeado pelo `employeeId` que o `201` passou a devolver
       (change `atomic-employee-account-creation` na API), e agora também **pela listagem**, num painel onde
@@ -290,7 +302,29 @@
 
 ## 7. Histórico e relatórios
 
-- [ ] Listar sessões (`GET /lawyers/get-all-releases/:roomId?`) com filtros por advogado e data
+- [x] Listar sessões (`GET /lawyers/get-all-releases/:roomId?`) em `/releases` — advogado, sala,
+      computador, liberado em, duração e situação, da mais recente para a mais antiga, incluindo as
+      sessões abertas. A rota já servia o painel de operação, que filtrava `endDate === null` e **jogava
+      o resto fora**; agora `roomId` é opcional e o histórico inteiro que já trafegava virou a tela. O
+      **desfecho é derivado**, porque a API não tem campo de status: `endDate` nulo é *em andamento*,
+      fechada com `usedAllTime` é *tempo esgotado* (a API fechou no `expiresAt`), fechada sem é
+      *encerrada* no balcão — e é essa última distinção que separa o fluxo normal da exceção. A duração
+      das sessões abertas **anda sozinha**, pelo mesmo `useElapsedMinutes` do painel. Quatro filtros:
+      sala (em `?sala=`), período, situação e busca por advogado, computador ou sala. Os ladrilhos de
+      contagem ignoram o filtro de situação de propósito — se o respeitassem, escolher um desfecho
+      zeraria os outros dois e o ladrilho viraria eco do filtro. **Sala inativa continua no seletor**, ao
+      contrário das impressões: a sala saiu de operação, mas as sessões que aconteceram nela continuam
+      sendo registro. A tela é **somente leitura** — encerrar sessão é do painel de operação, e uma
+      segunda tela capaz disso seria um caminho a mais para o clique errado
+- [x] Filtros de sala e período **compartilhados** entre as duas telas de histórico
+      (`_components/shared/filters/`) — a segunda tela é que justificou a extração, e foi ela que
+      transformou `printers-board` em `printers-table`. O controle recebe a lista de salas já recortada
+      pela tela: qual sala mostrar é regra de cada histórico, não do seletor. Ficaram de fora o filtro de
+      situação (só das liberações) e a busca (três linhas de JSX com campos diferentes em cada tela) —
+      compartilhá-los seria abstrair por simetria
+- [ ] Filtros no servidor para as liberações — ao contrário das impressões, aqui **não é escolha**: a
+      rota não pagina e não aceita filtro algum. E o aperto chega antes, porque sessão não tem expurgo
+      semanal como as impressões
 - [ ] ⛔ Uso por sala e computador — **bloqueado: não implementado na API**
 - [ ] ⛔ Impressões por advogado e sala — **bloqueado: não implementado na API**
 - [ ] ⛔ Tempo médio por sessão — **bloqueado: não implementado na API**
