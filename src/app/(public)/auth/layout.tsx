@@ -38,13 +38,16 @@ export default function AuthLayout({
             </div>
           </Link>
 
+          {/* Mesmo espaço de marca branca do cabeçalho público. O PNG tem fundo transparente de propósito:
+              `brightness-0 invert` pinta o traço de branco sobre o painel escuro — com fundo opaco viraria
+              um retângulo branco sólido. */}
           <Image
-            src="/assets/logo-oabma.png"
-            alt="OAB Maranhão"
-            width={749}
-            height={206}
+            src="/assets/logo-cliente.png"
+            alt="Logo da instituição"
+            width={900}
+            height={428}
             priority
-            className="h-auto w-20 shrink-0 opacity-80 brightness-0 invert sm:w-32 lg:w-40"
+            className="h-8 w-auto shrink-0 opacity-80 brightness-0 invert sm:h-10 lg:h-11"
           />
         </div>
 
