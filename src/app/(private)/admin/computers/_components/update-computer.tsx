@@ -6,15 +6,7 @@ import { useState } from 'react'
 import { Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -155,10 +147,6 @@ export function UpdateComputer({ computer }: UpdateComputerProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Editar computador</DialogTitle>
-
-            <DialogDescription>
-              É pelo código MAC que o Desktop pede a liberação — corrigi-lo aqui é o que devolve a máquina à operação.
-            </DialogDescription>
           </DialogHeader>
 
           {/* A API aceita editar máquina em uso; quem avisa do efeito colateral é a tela. Trocar o endereço
@@ -303,7 +291,7 @@ export function UpdateComputer({ computer }: UpdateComputerProps) {
                 {errors.macCode ? (
                   <FieldError errors={[errors.macCode]} />
                 ) : (
-                  <FieldDescription>12 dígitos hexadecimais. É o endereço físico da placa de rede da máquina.</FieldDescription>
+                  <FieldDescription>Endereço físico da placa de rede da máquina.</FieldDescription>
                 )}
               </Field>
             </FieldGroup>

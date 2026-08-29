@@ -218,11 +218,7 @@ export function UpdateEmployee({ employee }: UpdateEmployeeProps) {
                   {...register('email')}
                 />
 
-                {errors.email ? (
-                  <FieldError errors={[errors.email]} />
-                ) : (
-                  <FieldDescription>É por ele que chegam os dados de acesso e a recuperação de senha.</FieldDescription>
-                )}
+                {errors.email && <FieldError errors={[errors.email]} />}
               </Field>
 
               <Field data-invalid={!!errors.role}>
@@ -250,7 +246,11 @@ export function UpdateEmployee({ employee }: UpdateEmployeeProps) {
                           {(value: EmployeeRole | null) =>
                             value ? (
                               <span className="flex items-center gap-2">
-                                {value === 'ADMIN' ? <ShieldCheckIcon className="size-4" /> : <UserRoundIcon className="size-4" />}
+                                {value === 'ADMIN' ? (
+                                  <ShieldCheckIcon className="size-4" />
+                                ) : (
+                                  <UserRoundIcon className="size-4" />
+                                )}
 
                                 <span className="text-sm">{ROLE_LABELS[value]}</span>
                               </span>

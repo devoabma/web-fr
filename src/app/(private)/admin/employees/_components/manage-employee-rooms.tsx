@@ -291,10 +291,7 @@ export function ManageEmployeeRooms({ employee }: ManageEmployeeRoomsProps) {
                             <span className="px-1 text-muted-foreground text-xs tabular-nums">+{hiddenRoomsCount}</span>
                           )}
 
-                          <ComboboxChipsInput
-                            id="employee-rooms"
-                            placeholder={currentRoomIds.length ? '' : roomsPlaceholder}
-                          />
+                          <ComboboxChipsInput id="employee-rooms" placeholder={currentRoomIds.length ? '' : roomsPlaceholder} />
                         </>
                       )
                     }}

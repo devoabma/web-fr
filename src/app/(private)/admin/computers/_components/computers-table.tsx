@@ -56,7 +56,7 @@ export function ComputersTable() {
 
         <Input
           placeholder="Buscar pela sala ou pela descrição"
-          className="h-10 pl-9 placeholder:text-sm"
+          className="h-10 pl-9"
           value={searchComputer}
           onChange={({ target }) => setSearchComputer(target.value)}
         />

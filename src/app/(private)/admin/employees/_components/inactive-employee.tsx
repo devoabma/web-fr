@@ -96,9 +96,7 @@ export function InactiveEmployee({ employee }: InactiveEmployeeProps) {
           <ToggleRightIcon />
         </TooltipTrigger>
 
-        <TooltipContent>
-          {isHimself ? 'Você não pode inativar o seu próprio cadastro' : 'Inativar colaborador'}
-        </TooltipContent>
+        <TooltipContent>{isHimself ? 'Você não pode inativar o seu próprio cadastro' : 'Inativar colaborador'}</TooltipContent>
       </Tooltip>
 
       <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -111,8 +109,8 @@ export function InactiveEmployee({ employee }: InactiveEmployeeProps) {
             <AlertDialogTitle>Inativar {employee.name}?</AlertDialogTitle>
 
             <AlertDialogDescription>
-              Ele deixa de conseguir entrar no painel — se estiver com a sessão aberta, o bloqueio vale a partir do
-              próximo acesso.{' '}
+              Ele deixa de conseguir entrar no painel — se estiver com a sessão aberta, o bloqueio vale a partir do próximo
+              acesso.{' '}
               {roomsCount === 0
                 ? 'Nada é apagado'
                 : `Os vínculos com ${roomsCount} sala${roomsCount === 1 ? '' : 's'} e o histórico continuam salvos`}

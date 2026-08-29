@@ -154,7 +154,11 @@ export function PrintersTable() {
             allRoomsDescription="Todas as impressões que você tem permissão para ver"
           />
 
-          <PeriodFilter value={period} onValueChange={setPeriod} allPeriodDescription="Tudo o que sobrou desde a última limpeza" />
+          <PeriodFilter
+            value={period}
+            onValueChange={setPeriod}
+            allPeriodDescription="Tudo o que sobrou desde a última limpeza"
+          />
 
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="search-printer" className="text-muted-foreground text-xs uppercase tracking-wider">

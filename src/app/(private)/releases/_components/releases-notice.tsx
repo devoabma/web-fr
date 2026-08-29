@@ -7,9 +7,9 @@ export function ReleasesNotice() {
 
       <div className="flex flex-col gap-1.5 text-muted-foreground text-sm leading-relaxed">
         <p>
-          Esta tela é o <strong className="font-semibold text-foreground">registro das liberações</strong>: toda sessão aberta
-          no painel fica aqui, inclusive as que ainda estão em andamento. Nada é apagado — para liberar ou encerrar uma
-          máquina, use o painel de operação.
+          Esta tela é o <strong className="font-semibold text-foreground">registro das liberações</strong>: toda sessão aberta no
+          painel fica aqui, inclusive as que ainda estão em andamento. Nada é apagado — para liberar ou encerrar uma máquina, use
+          o painel de operação.
         </p>
 
         <p>

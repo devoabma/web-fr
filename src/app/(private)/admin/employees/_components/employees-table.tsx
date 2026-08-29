@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import {  TriangleAlertIcon, Users } from 'lucide-react'
+import { TriangleAlertIcon, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
@@ -29,8 +29,7 @@ export function EmployeesTable() {
 
     return (
       data?.employees.filter(
-        employee =>
-          employee.name.toLowerCase().includes(lowerSearch) || (!!digitsSearch && employee.cpf.includes(digitsSearch))
+        employee => employee.name.toLowerCase().includes(lowerSearch) || (!!digitsSearch && employee.cpf.includes(digitsSearch))
       ) ?? []
     )
   }, [data, searchEmployee])
@@ -57,7 +56,7 @@ export function EmployeesTable() {
 
         <Input
           placeholder="Busque por nome ou CPF"
-          className="h-10 pl-9 placeholder:text-sm"
+          className="h-10 pl-9"
           value={searchEmployee}
           onChange={({ target }) => setSearchEmployee(target.value)}
         />

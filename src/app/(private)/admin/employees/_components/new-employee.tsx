@@ -198,15 +198,6 @@ export function NewEmployee() {
         <PlusIcon data-icon="inline-start" /> Adicionar
       </DrawerTrigger>
 
-      {/*
-        `--drawer-inset` é a margem que descola o popup das bordas da tela — o `--closed-transform` do
-        componente já soma essa variável, então a animação de saída continua limpa. Com o painel flutuando,
-        `rounded-xl border` arredonda e contorna os quatro lados (o componente só faz o lado do arrasto) e
-        `--drawer-bleed-background` apaga a faixa que o `::after` pinta pra fora da borda: sem isso ela
-        aparece como um risco da cor do popup dentro do respiro à direita.
-        O `!` na largura é porque o componente define `--drawer-content-width` num seletor mais
-        específico (`data-[swipe-axis=x]:sm:`).
-      */}
       <DrawerContent className="rounded-xl border shadow-lg [--drawer-bleed-background:transparent] [--drawer-inset:0.75rem] sm:[--drawer-content-width:28rem]!">
         <DrawerHeader className="relative pb-4">
           <DrawerTitle>Novo colaborador</DrawerTitle>

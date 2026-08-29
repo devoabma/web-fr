@@ -56,7 +56,7 @@ export function RoomsTable() {
 
         <Input
           placeholder="Buscar pelo nome da sala ou pela descrição"
-          className="h-10 pl-9 placeholder:text-sm"
+          className="h-10 pl-9"
           value={searchRoom}
           onChange={({ target }) => setSearchRoom(target.value)}
         />

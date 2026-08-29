@@ -35,9 +35,7 @@ export function StatusFilter({ value, onValueChange }: StatusFilterProps) {
           <CircleDotIcon className="text-muted-foreground" />
 
           <SelectValue className="font-medium">
-            {(status: StatusFilterValue) =>
-              status === ALL_STATUSES ? 'Todas as situações' : RELEASE_STATUS_LABELS[status]
-            }
+            {(status: StatusFilterValue) => (status === ALL_STATUSES ? 'Todas as situações' : RELEASE_STATUS_LABELS[status])}
           </SelectValue>
         </SelectTrigger>
 

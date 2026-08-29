@@ -68,10 +68,7 @@ export function ReleasesTable() {
   // aqui faz o relógio da linha andar sem uma chamada por minuto na api-fr.
   const elapsedMinutes = useElapsedMinutes(releasesUpdatedAt)
 
-  const releases = useMemo(
-    () => buildReleaseViews(releasesData?.releases ?? [], elapsedMinutes),
-    [releasesData, elapsedMinutes]
-  )
+  const releases = useMemo(() => buildReleaseViews(releasesData?.releases ?? [], elapsedMinutes), [releasesData, elapsedMinutes])
 
   // Duas etapas de propósito: os ladrilhos de contagem mostram o que a *situação* está separando, então
   // eles contam o conjunto já estreitado por período e busca, mas ainda inteiro quanto ao estado.

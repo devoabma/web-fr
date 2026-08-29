@@ -6,9 +6,9 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -185,7 +185,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="rounded-xl border bg-sidebar text-sidebar-foreground shadow-lg [--drawer-bleed-background:transparent] [--drawer-inset:0.75rem] [--drawer-content-width:var(--sidebar-width)]!"
+          className="rounded-xl border bg-sidebar text-sidebar-foreground shadow-lg [--drawer-bleed-background:transparent] [--drawer-content-width:var(--sidebar-width)]! [--drawer-inset:0.75rem]"
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
