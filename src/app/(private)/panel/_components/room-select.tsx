@@ -13,7 +13,7 @@ interface RoomSelectProps {
 
 export function RoomSelect({ rooms, value, onValueChange }: RoomSelectProps) {
   return (
-    <div className="flex w-full flex-col gap-2 sm:max-w-80">
+    <div className="flex w-full flex-col gap-2 sm:max-w-96">
       <Label htmlFor="room" className="text-muted-foreground text-xs uppercase tracking-wider">
         Selecione uma sala
       </Label>

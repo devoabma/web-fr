@@ -116,7 +116,10 @@
       durante o carregamento e iniciais do nome quando não há foto
 - [x] Menu do usuário no avatar da barra superior: nome, e-mail, papel traduzido e saída do sistema, com
       `aria-label` no gatilho (abaixo de 640px o nome ao lado não é exibido)
-- [ ] Status real do sistema no lugar do badge fixo "All OK" (nada consulta o `/health` da API ainda)
+- [x] Status real do sistema no lugar do badge fixo "All OK" — `PanelStatus` consulta `GET /ready` da
+      API a cada 30s, com três estados (verificando, tudo certo, sem conexão). Lê `/ready` e não
+      `/health`: o `/health` responde `200` sem tocar no banco, porque é dele que o `HEALTHCHECK` do
+      contêiner decide reiniciar — um selo baseado nele ficaria verde com o Postgres fora
 - [x] Esconder a seção "Administração" de `MEMBER` (filtro sobre `NAV_SECTIONS`, não item desabilitado) —
       `adminOnly` na seção, `role` lido do cookie no layout privado, de modo que o grupo nunca chega ao
       HTML de quem não pode vê-lo

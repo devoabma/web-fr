@@ -9,10 +9,12 @@ import { cn } from '@/lib/utils'
 import type { PrinterProps } from '@/server/printers/get-all'
 
 // O fuso é fixo no da Seccional, e não o do navegador: a impressão aconteceu no balcão. Sem isso, a
-// impressão das 22h apareceria no dia seguinte para quem estivesse com o relógio em outro fuso.
+// impressão das 22h apareceria no dia seguinte para quem estivesse com o relógio em outro fuso. É por
+// isso que a data aqui não passa pelo `format` do date-fns como nas demais tabelas — ele só sabe ler o
+// relógio da máquina. O desenho, esse é o mesmo: "28 ago. 2026".
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',
-  month: '2-digit',
+  month: 'short',
   year: 'numeric',
   timeZone: 'America/Fortaleza',
 })
@@ -22,6 +24,17 @@ const timeFormatter = new Intl.DateTimeFormat('pt-BR', {
   minute: '2-digit',
   timeZone: 'America/Fortaleza',
 })
+
+/** O pt-BR do `Intl` monta "28 de ago. de 2026"; sem os "de" sobra o padrão do painel, com o ponto que
+ *  o próprio nome curto do mês já traz. */
+function formatDate(date: Date) {
+  const parts = dateFormatter.formatToParts(date)
+
+  return parts
+    .filter(part => part.type !== 'literal')
+    .map(part => part.value)
+    .join(' ')
+}
 
 const columnHelper = createColumnHelper<DataTableFeatures, PrinterProps>()
 
@@ -69,8 +82,8 @@ export const columnsPrinters = columnHelper.columns([
     cell: ({ getValue }) => {
       const printedAt = new Date(getValue())
 
-      const date = dateFormatter.format(printedAt)
-      const isToday = date === dateFormatter.format(new Date())
+      const date = formatDate(printedAt)
+      const isToday = date === formatDate(new Date())
 
       return (
         <div className="flex items-center gap-2">

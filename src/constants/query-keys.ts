@@ -1,4 +1,5 @@
 export const queryKeys = {
+  getReadiness: () => ['readiness'] as const,
   getProfile: () => ['profile'] as const,
   getRooms: () => ['rooms'] as const,
   getEmployees: () => ['employees'] as const,

@@ -78,7 +78,7 @@ src/
 │       ├── releases/              # /releases — histórico de liberações (page + _components + _data)
 │       └── _components/shared/
 │           ├── filters/           # sala, período e o corte de período — reusados pelas duas telas de histórico
-│           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx (ilha cliente)
+│           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx e panel-status.tsx (ilhas cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
@@ -136,7 +136,24 @@ sempre rodar `pnpm biome check --write` depois de editar JSX.
 
 ## 🔌 Integração com a `api-fr`
 
-**Base URL:** `https://api-fr.oabma.org.br` em produção. Docs vivas em `/docs` (Scalar), healthcheck em `/health`.
+**Base URL:** `https://api-fr.oabma.org.br` em produção. Docs vivas em `/docs` (Scalar).
+
+### Rotas de saúde
+
+Duas rotas públicas, com consumidores diferentes — e a distinção não é cosmética:
+
+| Rota | Responde | Quem lê |
+| --- | --- | --- |
+| `GET /health` | `200 { status }` sempre que o processo está de pé. **Não toca no banco.** | O `HEALTHCHECK` do Dockerfile da API |
+| `GET /ready` | `200 { status, database }` ou `503` quando o banco não responde em 3s | O selo do cabeçalho deste painel (`panel-status.tsx`) |
+
+> ⚠️ **Não troque o `/ready` pelo `/health` no selo, nem faça o `/health` consultar o banco.** Para o
+> orquestrador, "não saudável" significa uma coisa só: reinicie o contêiner. Reiniciar a API não conserta
+> banco fora do ar — derruba os WebSockets dos Desktops de todas as salas e, se a queda durar, vira laço de
+> reinício. Com o Neon em scale-to-zero, um cold start já bastaria. É por isso que são duas rotas.
+
+O `/health` é isento de rate limit (`UNLIMITED_ROUTES` na API); o `/ready` tem teto próprio de 60/min por
+IP, porque é rota pública que encosta no banco.
 
 ### Autenticação
 
@@ -401,7 +418,8 @@ a marca que paga o recuo da esquerda, para medir a partir da borda da tela.
 > `if (!profile) return null` — apaga a barra inteira enquanto o perfil não chega, **inclusive o
 > `SidebarTrigger`**: abaixo de 768px o usuário fica sem nenhum caminho para abrir a navegação, e o
 > conteúdo salta quando a barra reaparece. O estado de carregamento pertence ao bloco de usuário, com
-> `skeleton` do tamanho final.
+> `skeleton` do tamanho final. O mesmo vale para `panel-status.tsx`, a segunda ilha: o selo de saúde
+> consulta sozinho e falha sozinho, sem levar a barra junto.
 >
 > A marca (`panel-brand.tsx`) é a **segunda** ilha cliente da barra, pelo mesmo raciocínio: a largura dela
 > depende de a navegação estar recolhida — informação que só o contexto da sidebar tem e nenhuma media query

@@ -1,6 +1,6 @@
-import { Badge } from '@/components/ui/badge'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PanelBrand } from './panel-brand'
+import { PanelStatus } from './panel-status'
 import { PanelUser } from './panel-user'
 
 export function PanelHeader() {
@@ -21,10 +21,7 @@ export function PanelHeader() {
       </div>
 
       <div className="relative flex items-center gap-3">
-        <Badge className="border-white/15 bg-white/10 text-sidebar-foreground">
-          <span className="size-1.5 min-w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          All OK
-        </Badge>
+        <PanelStatus />
 
         <PanelUser />
       </div>
