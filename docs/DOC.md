@@ -61,6 +61,7 @@ src/
 ├── env.ts                         # variáveis públicas validadas por Zod
 ├── app/
 │   ├── layout.tsx                 # ÚNICO documento HTML: fonte, globals.css, metadata, providers
+│   ├── manifest.ts                # manifesto do PWA — publicado em /manifest.webmanifest
 │   ├── page.tsx                   # composição da landing
 │   ├── not-found.tsx              # 404 do produto
 │   ├── (public)/                  # rotas sem sessão
@@ -82,7 +83,8 @@ src/
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
-│   │   └── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
+│   │   ├── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
+│   │   └── service-worker-registrar.tsx  # registra o worker em produção, desregistra em dev
 │   └── ui/                        # primitivas shadcn/base-ui
 │       └── data-table/            # tabela reusável (TanStack v9): features, rodapé de paginação
 ├── constants/
@@ -108,6 +110,16 @@ src/
     ├── react-query.ts             # getQueryClient() — por requisição no servidor
     ├── auth/{routes,session}.ts   # política de rotas e leitura do JWT
     └── http/api-error.ts          # leitura defensiva de message / 429
+
+public/
+├── sw.js                          # service worker (escrito à mão) — ver "Aplicativo instalável"
+├── offline.html                   # tela de ausência de conexão, sem dependência do Next
+├── fr-icon.svg / logo.svg         # marca do produto
+├── icons/                         # ícones do app instalado (any, maskable, apple-touch)
+└── assets/logo-cliente.png        # marca branca da instituição
+
+scripts/
+└── generate-pwa-icons.mjs         # gera os PNGs de public/icons a partir do fr-icon.svg
 ```
 
 **Convenções:**
@@ -1637,6 +1649,80 @@ empurrar o trabalho: a lista chega inteira porque é assim que a API a serve.
 > ⚠️ **Sem expurgo e sem paginação, o histórico só cresce.** Impressões somem toda sexta; sessões ficam para
 > sempre. A paginação da tabela segura a renderização, mas a resposta inteira trafega — e o problema chega
 > antes aqui do que nas impressões.
+
+---
+
+## 📱 Aplicativo instalável (PWA)
+
+Desde **2026-08-30** o painel pode ser instalado no celular: ícone próprio na tela de início, abertura em
+tela cheia, barra de status no azul da marca. Continua sendo o mesmo site — o que mudou é a moldura.
+
+| Endereço | O que é |
+| --- | --- |
+| `/manifest.webmanifest` | gerado por `src/app/manifest.ts`; o Next injeta a `<link rel="manifest">` sozinho |
+| `/sw.js` | service worker escrito à mão, servido de `public/` com `no-store` e `Service-Worker-Allowed: /` |
+| `/offline.html` | tela de ausência de conexão, HTML solto com a marca inline |
+| `/icons/*.png` | cinco ícones do app instalado |
+
+Os três primeiros passam **ao largo do `proxy.ts`**: o matcher já ignora caminhos com extensão. Isso é
+necessário — o navegador busca o manifesto sem credenciais, e a tela de offline precisa abrir sem sessão.
+
+### O cache não guarda nada autenticado
+
+É a regra central do `sw.js`, e ela contraria o que um PWA costuma fazer. Um worker típico guarda o HTML
+das telas para abrir rápido na segunda visita; aqui isso seria vazamento entre turnos.
+
+As telas do painel são renderizadas no servidor **já com os dados da sessão**. Um HTML desses no
+`CacheStorage` sobrevive ao logout — o logout apaga cookie, não cache do navegador —, e o funcionário da
+tarde abriria o app vendo a tela do funcionário da manhã. Por isso:
+
+- **Navegação: sempre rede.** Falhou, aparece `offline.html`. Nunca uma tela guardada.
+- **Outra origem passa direto** — a `api-fr` é outro domínio e o worker nem olha.
+- **Só `GET`.** Ação de escrita nunca é atendida por cache.
+- **Cache apenas do imutável**: `/_next/static/*` (nome com hash), `/icons/*`, `fr-icon.svg`, `logo.svg`.
+
+O worker existe, em primeiro lugar, porque o Chrome exige um com handler de `fetch` para oferecer a
+instalação. Sabendo disso, ele foi escrito no menor tamanho que cumpre o requisito — sem `next-pwa` nem
+Serwist, cujas estratégias prontas assumem justamente o cache de página que este painel não suporta.
+
+> ⚠️ **`VERSION` no topo do `sw.js` é manual.** Alterar o worker sem subir a versão mantém o cache antigo
+> de pé até a próxima troca.
+
+### Ícones: três desenhos, não um redimensionado
+
+Gerados por `scripts/generate-pwa-icons.mjs` a partir do `fr-icon.svg`, com a marca em traço claro
+(`#e8eaf2`) sobre o azul `#16213e` — a mesma combinação que o SVG já usa no modo escuro, e o azul da
+sidebar. O fundo sólido não é enfeite: a marca é um traço fino e sumiria sobre papel de parede claro.
+
+- `icon-192/512.png` (`any`) — cantos arredondados no próprio PNG, porque nem todo lugar aplica máscara.
+- `icon-maskable-192/512.png` (`maskable`) — fundo até a borda, marca em 50% do quadro: o Android recorta
+  no formato do launcher e só garante os 80% centrais.
+- `apple-touch-icon.png` (180) — quadrado e opaco; o iOS ignora os ícones do manifesto, arredonda sozinho
+  e transforma transparência em preto.
+
+O `sharp` **não** é dependência do projeto: o script o pega emprestado e os PNGs ficam versionados.
+Regenerar, quando a marca mudar:
+
+```bash
+pnpm dlx --package=sharp node scripts/generate-pwa-icons.mjs
+```
+
+### Detalhes do layout que não são óbvios
+
+- **`start_url` é `/panel`**, não `/`. Quem instala quer o painel; sem sessão o proxy desvia para o login e
+  devolve o usuário depois.
+- **`apple-mobile-web-app-capable` é escrito à mão** no `metadata.other`. O `appleWebApp.capable` do Next
+  emite só a meta moderna, que o Safari passou a entender no **iOS 17.4** — em iPhone mais antigo, sem a
+  prefixada, o atalho abre com a barra do navegador.
+- **`colorScheme: 'light'`** porque nada no painel alterna tema, apesar dos tokens `.dark` no
+  `globals.css`. Quando o tema escuro existir, esta linha e o `theme_color` fixo saem juntos.
+- **Em desenvolvimento o worker é removido**, não apenas ignorado. Um build de produção rodado no
+  `localhost` deixa um worker servindo `/_next/static/*` antigo por cima do dev server; a tela quebra sem
+  um erro sequer no terminal.
+
+> ⚠️ **A instalação só é oferecida em HTTPS** (`localhost` é a exceção) — enquanto o deploy não existir,
+> nada disso aparece para o usuário final. E **não há botão "Instalar app"** no painel: o caminho é o menu
+> do navegador. O `beforeinstallprompt` cobriria o Android; no iOS o evento não existe.
 
 ---
 

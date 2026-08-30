@@ -342,6 +342,28 @@
 
 ---
 
+## 9. Aplicativo instalável (PWA)
+
+- [x] Manifesto (`src/app/manifest.ts`): `display: standalone`, `start_url` no `/panel`, `theme_color` da
+      marca, splash claro e atalhos de toque longo (Painel, Liberações, Impressões)
+- [x] Ícones do app em `public/icons/` — `any` com cantos arredondados, `maskable` com fundo até a borda,
+      `apple-touch-icon` opaco; gerados por `scripts/generate-pwa-icons.mjs` (`sharp` emprestado, fora das
+      dependências do projeto)
+- [x] Metadados do layout: `icons`, `appleWebApp`, `apple-mobile-web-app-capable` manual (iOS < 17.4),
+      `viewport.themeColor` e `colorScheme: 'light'`
+- [x] Service worker (`public/sw.js`) — navegação sempre pela rede; cache **só** de `/_next/static/*`,
+      ícones e marca. Nenhum HTML de tela e nenhuma resposta da `api-fr` entram no cache: o aparelho do
+      balcão é compartilhado entre turnos e o logout não apaga `CacheStorage`
+- [x] Tela de ausência de conexão (`public/offline.html`), com a marca inline e sem depender do Next
+- [x] Worker registrado em produção e **desregistrado** em desenvolvimento, para não servir build antigo
+      por cima do dev server
+- [x] Cabeçalhos do `/sw.js` (`no-store`, `Service-Worker-Allowed`) no `next.config.ts`
+- [ ] Conferir em aparelho real — instalação no Android, atalho no iPhone, tela de offline em modo avião
+- [ ] Botão "Instalar app" no painel (`beforeinstallprompt` no Android; instrução escrita no iOS)
+- [ ] ⚠️ **Depende do deploy**: a instalação só é oferecida em HTTPS
+
+---
+
 ## 🔗 Dependências do backend
 
 Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para destravar este painel:
