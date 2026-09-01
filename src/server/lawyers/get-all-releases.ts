@@ -7,6 +7,7 @@ export type ReleaseProps = {
   lawyer: {
     id: string
     name: string
+    oab: string
   }
   room: {
     id: string

@@ -7,8 +7,8 @@
  *
  *   pnpm dlx --package=sharp node scripts/generate-pwa-icons.mjs
  */
-import { createRequire } from 'node:module'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -64,7 +64,9 @@ const ICONS = [
 await mkdir(OUTPUT_DIR, { recursive: true })
 
 for (const { file, size, coverage, radius } of ICONS) {
-  const png = await sharp(Buffer.from(iconSvg({ size, coverage, radius }))).png({ compressionLevel: 9 }).toBuffer()
+  const png = await sharp(Buffer.from(iconSvg({ size, coverage, radius })))
+    .png({ compressionLevel: 9 })
+    .toBuffer()
 
   await writeFile(resolve(OUTPUT_DIR, file), png)
 

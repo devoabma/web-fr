@@ -328,9 +328,31 @@
 - [ ] Filtros no servidor para as liberações — ao contrário das impressões, aqui **não é escolha**: a
       rota não pagina e não aceita filtro algum. E o aperto chega antes, porque sessão não tem expurgo
       semanal como as impressões
-- [ ] ⛔ Uso por sala e computador — **bloqueado: não implementado na API**
-- [ ] ⛔ Impressões por advogado e sala — **bloqueado: não implementado na API**
-- [ ] ⛔ Tempo médio por sessão — **bloqueado: não implementado na API**
+- [x] Métricas das liberações em `/metrics` — quatro indicadores do ano (liberações, média por mês,
+      advogados atendidos, tempo médio de sessão) e quatro recortes: por ano, por mês, ranking de salas
+      e ranking de advogados. A contagem é do **Postgres**, pela rota agregada
+      `GET /lawyers/releases-metrics/:roomId?` criada na change irmã `aggregate-release-metrics` da
+      `api-fr`. Somar no cliente era possível — o histórico já faz — mas o gráfico por ano precisa do
+      passado **inteiro**, e a rota de listagem não pagina: nos números do próprio desenho da tela
+      (~28 mil sessões) seriam ~11 MB de JSON baixados e percorridos a cada visita para produzir quatro
+      números. Dois filtros na URL (`?ano=`, `?sala=`), porque os dois decidem *o que* a API agrega e
+      precisam sobreviver ao recarregar. **`byRoom` ignora o filtro de sala de propósito**: é um ranking
+      *entre* salas, e filtrado viraria uma barra só em 100%. O **delta compara com o mesmo período do
+      ano anterior** e some quando não há base — dividir por zero imprimiria "+∞%", e o primeiro ano de
+      operação cairia sempre nesse caso. **Mês futuro mostra `—`, não `0`**: zero afirmaria que ninguém
+      usou a sala em dezembro. A sigla da seccional é **derivada da UF das salas visíveis**, não cravada
+      no código — o model `Lawyers` não guarda UF, e fixar "MA" quebraria a marca branca. Gráficos com
+      `recharts` via o `chart` do shadcn (que **não traz Radix**, então convive com o `@base-ui/react`
+      deste painel); os rankings são listas com barra em CSS, porque não são séries num eixo. Tela
+      **somente leitura**
+- [x] Cascas de `/downloads` e `/admin/reports` no menu — cabeçalho, aviso do recorte já escrito e o
+      bloco de "em construção", **sem controle inerte nenhum**. Mesmo caminho que `/metrics` percorreu:
+      o endereço existe para o link não nascer quebrado e para o funcionário saber o que vem. As duas
+      dependem de trabalho na `api-fr` (itens 2 e 4 abaixo)
+- [ ] ⛔ Impressões por advogado e sala — **bloqueado: não implementado na API**. As métricas cobrem
+      *liberações*; a fila de impressão não tem rota agregada equivalente
+- [ ] ⛔ Baixar o arquivo de impressão em `/downloads` — **bloqueado: não implementado na API**
+- [ ] ⛔ Relatórios de fechamento em `/admin/reports` — **bloqueado: não implementado na API**
 
 ---
 
@@ -374,8 +396,12 @@ Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para des
    download de verdade.
 3. **Eventos de negócio no WebSocket** — a única forma de o painel ver o que acontece fora dele sem
    voltar a repetir requisições.
-4. **Relatórios**.
+4. **Relatórios** de fechamento por período, sala e colaborador — é o que preenche a casca de
+   `/admin/reports`. Não se confunde com `/metrics`: métrica é contagem para orientar a operação,
+   relatório é o documento do período.
 
 > **Resolvidos:** _liberar computador manualmente_ saiu desta lista — `POST /lawyers/release-computer` já
 > existia, é pública e recebe `macCode`; nunca foi bloqueio. _Restringir o CORS ao `WEB_URL`_ foi feito na
-> `api-fr` e habilitou a sessão por cookie `httpOnly`.
+> `api-fr` e habilitou a sessão por cookie `httpOnly`. _Uso por sala e computador_ e _tempo médio por
+> sessão_ saíram em **2026-09-01**: a change `aggregate-release-metrics` da `api-fr` levou a contagem
+> para o Postgres e destravou `/metrics`.

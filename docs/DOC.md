@@ -32,6 +32,8 @@ A documentação de domínio (regras de negócio, fluxos, banco) é mantida na A
 - **TanStack React Query 5** — camada de dados do cliente
 - **TanStack React Table 9** — primitiva `DataTable` das áreas administrativas
 - **date-fns** — formatação de datas nas tabelas
+- **recharts 3.8** — gráficos de `/metrics`, pelo `chart` do shadcn. É um invólucro de tema e **não
+  arrasta Radix**, então convive com o `@base-ui/react` deste painel
 - **Biome 2.4** (lint + format) · **pnpm**
 
 ```bash
@@ -75,10 +77,13 @@ src/
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
 │       ├── admin/computers/       # /admin/computers — cadastro, listagem, edição e exclusão (page + _components)
 │       ├── admin/employees/       # /admin/employees — cadastro, edição, vínculos e ativar/inativar (page + _components)
+│       ├── admin/reports/         # /admin/reports — casca: aviso do escopo ADMIN + "em construção"
 │       ├── printers/              # /printers — histórico de impressões (page + _components)
 │       ├── releases/              # /releases — histórico de liberações (page + _components + _data)
+│       ├── metrics/               # /metrics — métricas das liberações (page + _components + _data)
+│       ├── downloads/             # /downloads — casca: aviso do expurgo + "em construção"
 │       └── _components/shared/
-│           ├── filters/           # sala, período e o corte de período — reusados pelas duas telas de histórico
+│           ├── filters/           # sala, período e o corte de período — reusados pelos históricos e por /metrics
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx e panel-status.tsx (ilhas cliente)
 │           └── panel-sidebar/     # casca, itens de navegação e controle de recolher
 ├── components/
@@ -95,7 +100,7 @@ src/
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
 │   ├── computers/                 # get-all, create, update, delete, conectadas e entrada/saída de manutenção
 │   ├── printers/                  # get-all (roomId opcional no caminho)
-│   └── lawyers/                   # sessões: listar (roomId opcional), liberar e encerrar
+│   └── lawyers/                   # sessões: listar (roomId opcional), liberar, encerrar e métricas agregadas
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
 │   └── use-elapsed-minutes.ts     # minutos decorridos desde uma resposta, para o saldo andar na tela
@@ -292,9 +297,16 @@ Confirmar antes de planejar as telas correspondentes.
 - **Baixar arquivo da fila de impressão** — a listagem existe e a tela `/printers` já a consome, mas o
   download não. O `fileUrl` aponta para o Storage, em outro domínio, onde `<a download>` é ignorado pelo
   navegador: a tela **abre** o arquivo em aba nova, que é o máximo honesto daqui. Vira download de verdade
-  no dia em que a `api-fr` servir o arquivo pelo próprio domínio.
-- **Relatórios** — nada implementado. A *listagem* de sessões existe e `/releases` a consome desde
-  **2026-08-28**; o que falta são os agregados (uso por sala, impressões por advogado, tempo médio).
+  no dia em que a `api-fr` servir o arquivo pelo próprio domínio — a casca de `/downloads` já existe
+  esperando, com o prazo do expurgo escrito no aviso.
+- **Relatórios** — parcialmente resolvido em **2026-09-01**. A change `aggregate-release-metrics` da
+  `api-fr` criou `GET /lawyers/releases-metrics/:roomId?`, que agrega as **liberações** no Postgres
+  (indicadores do ano, série por ano e por mês, ranking de salas e de advogados) e destravou
+  `/metrics` — com ela caíram os bloqueios de *uso por sala* e de *tempo médio por sessão*. Continuam
+  de fora: **impressões por advogado e sala**, que não têm rota agregada equivalente, e os
+  **relatórios de fechamento** por período, sala e colaborador, que é outro produto — métrica é
+  contagem para orientar a operação, relatório é o documento do período. A casca de `/admin/reports`
+  já existe esperando.
 - **A rota de sessões não pagina nem aceita filtro algum** — nem por advogado, nem por data, ao contrário
   da de impressões. `/releases` filtra tudo no cliente porque não há para onde empurrar o trabalho. E o
   aperto chega antes aqui: impressões somem toda sexta, sessões ficam para sempre.
@@ -322,6 +334,9 @@ Confirmar antes de planejar as telas correspondentes.
 | `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral, gestão das salas vinculadas e alternância entre ativo e inativo. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/printers` | `(private)` | histórico de impressões: filtros de sala (`?sala=`), período e busca, tabela com o arquivo em aba nova e aviso do expurgo semanal. Aberta aos dois papéis — o escopo por sala é o que a `api-fr` já resolve |
 | `/releases` | `(private)` | histórico de liberações: filtros de sala (`?sala=`), período, situação e busca, com o desfecho de cada sessão e a duração das abertas andando na tela. **Somente leitura** — encerrar é do painel de operação. Aberta aos dois papéis |
+| `/metrics` | `(private)` | métricas das liberações: quatro indicadores do ano e quatro recortes (por ano, por mês, ranking de salas, ranking de advogados), com filtros de ano (`?ano=`) e sala (`?sala=`). Os números vêm **agregados do Postgres** por `GET /lawyers/releases-metrics/:roomId?` — a tela formata, não soma. **Somente leitura.** Aberta aos dois papéis |
+| `/downloads` | `(private)` | **casca**: cabeçalho, aviso do expurgo semanal e do recorte por salas vinculadas, e o bloco de "em construção". Espera a `api-fr` servir o arquivo de impressão pelo próprio domínio |
+| `/admin/reports` | `(private)` | **casca**: cabeçalho, aviso do escopo de `ADMIN` e o bloco de "em construção". Espera os relatórios de fechamento na `api-fr`. Só `ADMIN` — coberta pelo prefixo `/admin` |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -1649,6 +1664,138 @@ empurrar o trabalho: a lista chega inteira porque é assim que a API a serve.
 > ⚠️ **Sem expurgo e sem paginação, o histórico só cresce.** Impressões somem toda sexta; sessões ficam para
 > sempre. A paginação da tabela segura a renderização, mas a resposta inteira trafega — e o problema chega
 > antes aqui do que nas impressões.
+
+---
+
+### Métricas das liberações (`/metrics`)
+
+O painel já respondia **quem está usando agora** (`/panel`) e **o que já aconteceu** (`/releases`). O que
+faltava era **quanto**: que salas concentram a demanda, se o movimento cresceu, quem são os advogados que
+mais voltam. Desde **2026-09-01** essa é a tela.
+
+#### A contagem é do Postgres, não do navegador
+
+Dava para somar no cliente: `GET /lawyers/get-all-releases` devolve a lista inteira, e o histórico já a
+percorre. A tentação era real, e foi recusada por um motivo aritmético — **o gráfico por ano precisa do
+passado inteiro**, sem recorte de data, e essa rota não pagina. Nos números do próprio desenho da tela
+(~28 mil sessões) são da ordem de **11 MB de JSON** baixados e percorridos no navegador a cada visita, para
+produzir quatro números.
+
+A change irmã `aggregate-release-metrics`, na `api-fr`, moveu a contagem para o banco:
+`GET /lawyers/releases-metrics/:roomId?` devolve **~5 KB prontos**. `src/server/lawyers/get-releases-metrics.ts`
+tipa a resposta; `_data/metrics-view.ts` só formata e mede barras. **A tela não calcula agregado nenhum.**
+
+> O recorte por papel é resolvido na `api-fr`, como em todas as telas de histórico: `ADMIN` enxerga todas
+> as salas, `MEMBER` apenas aquelas em que está vinculado. Pedir uma sala à qual não se tem acesso devolve
+> **zeros, não erro** — mesmo comportamento de `get-all-releases`.
+
+#### Dois filtros na URL, porque os dois mudam a pergunta
+
+`?ano=` e `?sala=` decidem **o que a `api-fr` agrega**, então precisam sobreviver ao recarregar e ao
+compartilhar o link — mesmo critério do `?sala=` das outras telas de histórico. O ano corrente e "todas as
+salas" saem da URL em vez de virarem parâmetro redundante.
+
+`parseYearParam` aceita de 2000 até o ano seguinte e cai no ano corrente para qualquer outra coisa: endereço
+editado à mão não deve deixar a tela em branco. E `buildYearOptions` acrescenta à lista o **ano corrente** e
+o **ano selecionado**, mesmo sem registro — em janeiro o seletor ficaria sem a opção que a tela abre por
+padrão, e quem chega por um link de um ano vazio veria o seletor exibindo um ano fora da própria lista, sem
+caminho de volta.
+
+#### O ranking de salas ignora o filtro de sala, de propósito
+
+`byRoom` é a única parte da resposta que não respeita `?sala=` — e isso é decisão, não descuido. É um
+ranking **entre** salas; filtrado, viraria uma única barra em 100%, que não informa nada. O subtítulo do
+card diz isso em voz alta, para o número não parecer erro.
+
+Ele também traz **as salas sem movimento, com zero**. Elas somem do `JOIN` no SQL e são reinseridas no
+handler: é justamente a sala ociosa que o ranking precisa mostrar.
+
+#### A barra mede contra o líder; o percentual, contra o total
+
+Duas escalas no mesmo item, e cada uma responde uma pergunta diferente. Se a barra usasse a fatia do total,
+um ranking equilibrado viraria cinco tracinhos idênticos e curtos. Medindo contra o primeiro colocado, a
+comparação fica legível. O **percentual** é que precisa somar 100% — é ele que responde "quanto desta
+operação passa por aqui".
+
+#### Os números que a tela se recusa a mostrar
+
+| Situação | O que a tela faz | Por quê |
+| --- | --- | --- |
+| Sem base de comparação | **omite o delta** | dividir por zero imprimiria "+∞%", e o primeiro ano de operação cairia sempre nesse caso |
+| Mês que ainda não chegou | mostra `—`, não `0` | zero afirmaria que ninguém usou a sala em dezembro |
+| Salas de UFs diferentes | rótulo vira `OAB`, sem sigla | inventar a seccional erraria a inscrição de alguém |
+
+A **sigla da seccional é derivada, nunca cravada**: o model `Lawyers` da `api-fr` não guarda UF — quem tem
+`uf` é a sala. Quando todas as salas visíveis são da mesma seccional, o rótulo vira `OAB/MA`; havendo
+mistura, fica só `OAB`. Fixar "MA" no código quebraria a marca branca.
+
+O delta compara com o **mesmo período do ano anterior** — e do lado da API a comparação é pelo par
+(mês, dia), não por dia-do-ano, porque este erraria um dia sempre que um dos dois anos fosse bissexto.
+
+#### Os rótulos ficam numa linha fixa no alto, não no topo das barras
+
+O `position="top"` do recharts acompanha a altura da barra, o que esconde justamente os valores que mais
+precisam ser lidos: a barra zerada não tem topo onde pousar o rótulo, e o mês que ainda não chegou
+desapareceria da leitura em vez de mostrar o traço. `buildChartValueLabel` desenha os valores numa
+baseline fixa, e é ela que garante o `—` visível.
+
+#### Só os gráficos usam recharts
+
+`recharts` é a primeira dependência de gráfico do projeto, e entra pelo `chart` do shadcn — que é um
+invólucro de tema e **não arrasta Radix**, então convive com o estilo `base-nova`/`@base-ui/react` deste
+painel. Os dois rankings **não** o usam: sala e advogado são listas com barra proporcional em CSS. Não são
+séries num eixo, são comparações lado a lado com nome, contagem e percentual.
+
+O ranking completo de advogados abre num **Drawer** pelo "Ver todos". O card mostra os dez primeiros, e a
+rota já devolveu a lista inteira — não há segunda chamada.
+
+#### A mensagem de vazio é explicada pela causa, e o filtro de sala fala primeiro
+
+Dizer só "sem dados" deixa o funcionário sem saber se ele filtrou demais, se a sala é nova ou se o ano ainda
+não começou. `buildEmptyMessage` distingue quatro casos — e **a ordem das verificações importa**.
+
+> ⚠️ **`byYear` também é recortado pela sala.** Uma sala que nunca foi usada chega à tela sem histórico
+> nenhum, e testar a falta de histórico antes do filtro faria a tela anunciar "nenhuma liberação registrada
+> até agora" — afirmando que o produto inteiro está zerado por causa de um `?sala=`. O filtro de sala é
+> verificado primeiro.
+
+Quando o ano selecionado está vazio mas existe histórico, **o gráfico por ano continua na tela**: é ele que
+mostra onde há movimento para escolher.
+
+#### `shrink-0` em todo bloco de primeiro nível
+
+O layout privado é uma coluna flex. Sem `shrink-0`, os cards eram **comprimidos** em vez de o container
+rolar — e o efeito só aparece em janela baixa, que é a do balcão. Vale para a toolbar, a grade de
+indicadores, a de gráficos e a de rankings.
+
+#### A tela é somente leitura
+
+Como o histórico. Nenhum indicador leva a uma ação sobre sessões — encerrar continua sendo do painel de
+operação.
+
+---
+
+### Cascas de `/downloads` e `/admin/reports`
+
+Duas rotas que existem sem conteúdo, de propósito. `/metrics` percorreu esse mesmo caminho: nasceu casca,
+com o aviso já escrito, e virou tela depois que a `api-fr` ofereceu o que preencher — e o `metrics-notice`
+atravessou a construção inteira **sem uma linha mudada**, o que é a prova de que o aviso não era rascunho.
+
+| Rota | Papel | O que espera |
+| --- | --- | --- |
+| `/downloads` | ambos | a `api-fr` servir o arquivo de impressão pelo próprio domínio |
+| `/admin/reports` | só `ADMIN` | os relatórios de fechamento por período, sala e colaborador |
+
+Cada uma tem cabeçalho, o aviso do recorte que a `api-fr` **já garante hoje** (expurgo semanal e salas
+vinculadas numa; escopo de `ADMIN` e registro excluído que segue no histórico na outra) e um bloco tracejado
+declarando que o conteúdo está sendo construído.
+
+> **Nenhum controle inerte.** Sem botão desabilitado, sem campo de filtro sem efeito, sem número de exemplo.
+> Um controle que não faz nada é pior que a ausência dele, porque faz o funcionário tentar.
+
+Nenhuma das duas entrou em `PUBLIC_ROUTES`: a política é **negar por padrão**, então `/downloads` nasce
+protegida sem registro nenhum, e `/admin/reports` é coberta pelo prefixo `/admin` de `ADMIN_ROUTES` — o
+`MEMBER` que digitar o endereço volta ao painel, e o item nem aparece na sidebar dele.
 
 ---
 
