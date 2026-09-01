@@ -1,6 +1,17 @@
 'use client'
 
-import { ChartColumn, Computer, DoorOpen, LayoutDashboard, type LucideIcon, MonitorCheck, PrinterIcon, Users } from 'lucide-react'
+import {
+  ChartColumn,
+  Computer,
+  DoorOpen,
+  Download,
+  FileText,
+  LayoutDashboard,
+  type LucideIcon,
+  MonitorCheck,
+  PrinterIcon,
+  Users,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -34,6 +45,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Impressões', path: '/printers', icon: PrinterIcon },
       { label: 'Liberações', path: '/releases', icon: MonitorCheck },
       { label: 'Métricas', path: '/metrics', icon: ChartColumn },
+      { label: 'Downloads', path: '/downloads', icon: Download },
     ],
   },
   {
@@ -43,6 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Salas', path: '/admin/rooms', icon: DoorOpen },
       { label: 'Computadores', path: '/admin/computers', icon: Computer },
       { label: 'Colaboradores', path: '/admin/employees', icon: Users },
+      { label: 'Relatórios', path: '/admin/reports', icon: FileText },
     ],
   },
 ]
