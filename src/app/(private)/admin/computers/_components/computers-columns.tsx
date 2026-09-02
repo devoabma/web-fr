@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import type { ComputerWithRoomProps } from '@/server/computers/get-all'
 import { DeleteComputer } from './delete-computer'
 import { UpdateComputer } from './update-computer'
+import { UpdateComputerApp } from './update-computer-app'
 
 const columnHelper = createColumnHelper<DataTableFeatures, ComputerWithRoomProps>()
 
@@ -142,6 +143,11 @@ export const columnsComputers = columnHelper.columns([
     meta: { className: 'text-center', skeletonClassName: 'w-14' },
     cell: ({ row }) => (
       <div className="flex items-center justify-center gap-1">
+        {/* Primeiro na fila de propósito: é a única ação da linha que aparece sozinha, sem ninguém
+            pedir, e some quando a máquina está em dia. Vindo antes, o olho a encontra no lugar em
+            que ela apareceu — e não empurra as outras duas de posição quando desaparece. */}
+        <UpdateComputerApp computer={row.original} />
+
         <UpdateComputer computer={row.original} />
 
         <DeleteComputer computer={row.original} />

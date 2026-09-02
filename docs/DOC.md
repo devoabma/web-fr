@@ -330,7 +330,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/auth/forgot-password` | `(public)` | pronta: CPF + e-mail, confirmação no lugar do formulário e reenvio travado por 60s |
 | `/auth/reset-password` | `(public)` | pronta: código de 6 caracteres (aceita o `?code=` do e-mail), nova senha e confirmação. **Dinâmica** por causa do `searchParams` |
 | `/admin/rooms` | `(private)` | salas de liberação: cadastro em painel lateral, tabela com busca e paginação, edição em diálogo e alternância entre ativa e inativa. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
-| `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo e exclusão confirmada por digitação. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
+| `/admin/computers` | `(private)` | computadores de liberação: cadastro em painel lateral, tabela com busca por sala ou descrição, edição em diálogo, exclusão confirmada por digitação e **pedido de atualização do Desktop** na própria linha. Só `ADMIN` — `MEMBER` é devolvido ao painel pelo `proxy.ts` |
 | `/admin/employees` | `(private)` | colaboradores: cadastro em painel lateral, tabela com busca por nome ou CPF, edição em painel lateral, gestão das salas vinculadas e alternância entre ativo e inativo. Só `ADMIN` — para `MEMBER` a seção inteira nem é renderizada |
 | `/printers` | `(private)` | histórico de impressões: filtros de sala (`?sala=`), período e busca, tabela com o arquivo em aba nova e aviso do expurgo semanal. Aberta aos dois papéis — o escopo por sala é o que a `api-fr` já resolve |
 | `/releases` | `(private)` | histórico de liberações: filtros de sala (`?sala=`), período, situação e busca, com o desfecho de cada sessão e a duração das abertas andando na tela. **Somente leitura** — encerrar é do painel de operação. Aberta aos dois papéis |
@@ -1262,11 +1262,72 @@ sem versão é o sintoma de instalação que nunca subiu.
 > ⚠️ **Ausência de versão não é erro**, e o carimbo não é "vista por último". Sem versão significa que a
 > estação não conectou desde que a `api-fr` passou a guardar o dado, ou que o envio está desligado na
 > configuração local dela. E a versão só trafega no `register` do WebSocket, isto é, a cada conexão: máquina
-> que não cai há semanas mantém carimbo antigo **estando no ar**. Quem responde "está online agora" é
+> que não cai há semanas mantém carimbo antigo **estando no ar**. Quem responde "está online agora" nesta
+> tela é o `isOnline` da própria listagem (ver abaixo); na grade do painel continua sendo
 > `GET /computers/online`.
 
 > ⚠️ **A colisão de `number` continua possível.** A sugestão do próximo livre reduz a chance, mas duas abas
 > cadastrando na mesma sala ainda colidem — quem recusa é o `400`.
+
+#### Atualizar o aplicativo da estação agora
+
+`POST /computers/update/:id` é `ADMIN`-only e faz uma coisa só: empurra um `update_now` pelo canal que o
+Desktop **já mantém aberto**. Ninguém alcança a estação por IP — é ela que fica pendurada no WebSocket. Sem
+esse pedido, a máquina consulta o manifesto sozinha a cada 6 horas; com ele, agora.
+
+A ação vive na coluna Ações (`update-computer-app.tsx`) e vem **antes** de editar e excluir. É a única ação
+da linha que aparece e some sozinha: no fim, ela empurraria as outras duas de posição toda vez que mudasse de
+estado, e o alvo de "excluir" dançaria entre uma linha e a seguinte.
+
+**Quem decide se há o que atualizar é a `api-fr`, não o painel.** `GET /computers/get-all` passou a devolver,
+por computador, `isOnline` (o canal aberto **agora**, lido do mapa em memória do WebSocket) e `updateStatus`
+(`outdated` | `up-to-date` | `unknown`), além de um `latestVersion` no envelope com a versão publicada, as
+`notas` do manifesto e a data da publicação. O front **não** compara versões: `'1.0.10' < '1.0.9'` é
+verdadeiro em ordem alfabética, e esse erro só aparece na décima publicação — ele mora no servidor, uma vez
+só, em vez de ser reescrito em cada tela.
+
+| `updateStatus` | Conectada | Desconectada |
+| --- | --- | --- |
+| `outdated` | botão ativo, com pulso | botão travado — "ela busca a versão sozinha ao ser ligada" |
+| `unknown` | botão ativo — é a máquina que mais precisa ser sacudida | **sem botão**: não se sabe se está atrasada, e ela não ouviria |
+| `up-to-date` | **sem botão** | **sem botão** |
+
+`unknown` cobre três casos que dão no mesmo para quem olha a tela — nunca informou a versão, informou algo
+ilegível, ou a API ainda não sabe qual é a publicada. **Não** é o mesmo que "em dia", e a tela nunca trata
+como se fosse.
+
+Máquina **em uso** e máquina **desconectada** ganham o botão travado com o motivo no tooltip, e não escondido:
+são as duas travas que a API aplica antes de gastar o canal (`400` e `409`). Como no delete, é `aria-disabled`
+e não `disabled` — botão desabilitado não dispara `hover`, e o tooltip é o que explica o porquê.
+
+O pulso (`animate-ping` num anel verde) é o único elemento da tabela que chama atenção sem ninguém pedir, e
+por isso só acende com `outdated` **e** o botão liberado: pulsar numa máquina inalcançável gasta credibilidade
+à toa. Embaixo do anel há um ponto sólido, que não depende de animação — o aviso continua legível para quem
+desligou movimento no sistema.
+
+O diálogo mostra `instalada → nova`, as notas do manifesto (em português, escritas pelo time do Desktop) com
+a data de publicação, e a promessa que sustenta o clique no meio do expediente: **nenhuma versão interrompe
+advogado(a)**. Sem `latestVersion` em mãos, o pedido continua válido — vira um "vá conferir agora" — e a tela
+diz isso em texto, sem inventar número.
+
+> A versão publicada é do **envelope**, não do computador. Ela é lida da cache do React Query pela mesma
+> `queryKeys.getComputers()` que a tabela já buscou, em vez de descer por props através da definição de
+> colunas: nenhuma requisição nova, e a coluna Ações não precisa saber que existe uma versão publicada no
+> mundo.
+
+> ⚠️ **O `200` confirma o envio do recado, jamais a atualização.** Baixar ~60 MB, conferir assinatura e
+> SHA-256, rodar o autoteste e reiniciar leva minutos. A listagem é revalidada mesmo assim — online, versão
+> de cada um e versão publicada mudam —, mas a coluna Desktop pode continuar antiga por vários refetches, e
+> isso **não** é falha. A prova é a versão nova aparecendo quando a estação voltar.
+
+> ⚠️ **Estação desligada não vira fila.** O `409` não é erro de quem pediu: a máquina busca a versão sozinha
+> na próxima partida. Já **manutenção não bloqueia** — é justamente quando ninguém está usando, o melhor
+> momento possível para trocar o executável.
+
+> ⚠️ **O `429` é lido, nunca retentado.** O teto é por IP + computador (10 a cada 5 minutos) e protege o link
+> da unidade. A tela lê `retryAfterInSeconds` e diz em quanto tempo tentar de novo (`formatWaitTime`);
+> retry automático em cima de rate limit é como se transforma uma proteção em incidente. Nas recusas, o
+> diálogo **fica aberto**, para a nova tentativa não exigir reabri-lo.
 
 ---
 

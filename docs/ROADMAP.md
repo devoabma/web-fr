@@ -280,6 +280,24 @@
       atual entra no seletor mesmo inativa (senão o campo abriria vazio) e os números em uso desconsideram a
       própria máquina. A API não recusa máquina em uso aqui, ao contrário do delete: a tela avisa do efeito
       de trocar MAC ou sala com sessão aberta, mas não bloqueia
+- [x] Atualizar o aplicativo da estação agora (`POST /computers/update/:id`) — botão na própria linha que
+      empurra um `update_now` pelo WebSocket que a máquina já mantém aberto; ninguém alcança a estação por
+      IP, é ela que fica pendurada no servidor. Ele **só aparece onde faz sentido**: quando a `api-fr` diz
+      `outdated`, ou `unknown` com a estação no ar — máquina que a API garante em dia não ganha ação que ela
+      recusaria com `400`. Quem decide isso é o servidor (`updateStatus`), e não o painel: comparar versão
+      como texto poria `1.0.10` antes de `1.0.9` e apontaria a máquina errada. Em uso ou desconectada, o
+      botão aparece **travado** com o motivo no tooltip — `aria-disabled` e não `disabled`, porque botão
+      desabilitado não dispara hover e o motivo é o que interessa. A bolinha só pulsa quando o clique tem
+      para onde ir, com um ponto sólido embaixo do `animate-ping` para quem desligou movimento no sistema. O
+      diálogo mostra `instalada → nova`, as notas do manifesto em português e a promessa que sustenta o
+      clique no meio do expediente: nenhuma versão interrompe advogado(a). **A resposta confirma o envio do
+      recado, nunca a troca** — baixar, conferir assinatura e reiniciar leva minutos, e a prova é a versão
+      nova aparecendo na coluna Desktop. Estação desligada não vira fila (`409`): ela busca sozinha ao ligar.
+      O `429` (10 disparos por máquina a cada 5 minutos) é lido e apresentado como espera, sem retentativa
+- [x] Estação online e situação da versão na listagem (`isOnline` e `updateStatus`, mais o `latestVersion`
+      do envelope, todos embutidos em `GET /computers/get-all` — sem requisição nova). É o que separa
+      "atualizar agora" de "ela pega sozinha ao ligar", e o que dá ao painel a régua que faltava: a versão
+      **publicada**, e não mais a maior da própria sala
 
 ---
 

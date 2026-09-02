@@ -39,6 +39,9 @@
 
 ## 5. Próximos passos (fora desta change)
 
-- [ ] 5.1 Avaliar a mesma informação na listagem de `/admin/computers`, que também recebe os dois campos
+- [x] 5.1 Avaliar a mesma informação na listagem de `/admin/computers` — feita na change
+      `anatomia-das-tabelas-administrativas` (coluna Desktop)
 - [ ] 5.2 Avaliar um resumo por sala ("2 estações atrás da mais nova") se o destaque por cartão não bastar
-- [ ] 5.3 ⛔ Comparar com a versão publicada — bloqueado até a `api-fr` expor qual release é a corrente
+- [ ] 5.3 Comparar com a versão publicada — **destravado**: a `api-fr` passou a expor `updateStatus` e
+      `latestVersion`, consumidos na change `atualizacao-remota-do-desktop`. Segue pendente **aqui**, porque
+      a grade lê `GET /rooms/get-all`, que ainda não devolve esses campos
