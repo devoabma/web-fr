@@ -23,7 +23,7 @@ self.addEventListener('install', event => {
       .open(ASSET_CACHE)
       .then(cache => cache.addAll(PRECACHE_URLS))
       // `skipWaiting` evita o limbo do worker antigo continuar mandando depois de um deploy.
-      .then(() => self.skipWaiting()),
+      .then(() => self.skipWaiting())
   )
 })
 
@@ -32,7 +32,7 @@ self.addEventListener('activate', event => {
     caches
       .keys()
       .then(keys => Promise.all(keys.filter(key => key !== ASSET_CACHE).map(key => caches.delete(key))))
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
   )
 })
 
