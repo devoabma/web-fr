@@ -9,10 +9,6 @@ export const metadata: Metadata = {
 }
 
 export default async function DownloadsPage() {
-  // O papel sai do cookie, como no layout: assim as ações de gestão já vêm certas no HTML, sem
-  // piscar na tela de quem não pode vê-las. Sem sessão legível, trata como MEMBER (menor
-  // privilégio) — quem autoriza de verdade continua sendo o proxy e a api-fr, que só devolve os
-  // registros inativos e só aceita as escritas quando o token é de ADMIN.
   const cookieStore = await cookies()
   const session = readSession(cookieStore.get(SESSION_COOKIE_NAME)?.value)
 

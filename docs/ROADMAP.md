@@ -436,6 +436,11 @@
       executável novo sai quebrado. Reativar sai do histórico, e some quando já existe ativo do mesmo tipo,
       trocado por uma frase que nomeia o passo que falta — botão desabilitado não dispara tooltip, e clique
       que só devolve `400` não é ação, é armadilha
+- [x] O botão de baixar é uma **âncora vestida de botão** (`buttonVariants()`), e não o `Button` do base-ui
+      emprestando a tag: esse componente parte de `nativeButton: true` e avisa no console ao receber um `<a>`;
+      com `nativeButton={false}` ele carimba `role="button"`, e o leitor de tela passaria a anunciar "botão"
+      para algo que navega. Trocar o aviso por semântica errada seria o pior dos dois. O `Button` ficou só
+      onde a coisa é mesmo inerte — endereço recusado, botão desabilitado
 - [x] Endereço **conferido de novo na tela** antes de virar `href` (`_data/download-link.ts`). A `api-fr`
       fecha o protocolo na entrada, mas registro gravado antes disso, ou colado direto no banco, chegaria
       aqui: um `javascript:` num `href` não é link quebrado, é script rodando no navegador de quem só queria

@@ -97,6 +97,10 @@ O painel MUST validar o endereço de cada arquivo antes de desenhá-lo como link
 
 O link MUST abrir em nova aba com `rel="noopener noreferrer"`.
 
+O elemento que leva ao arquivo MUST ser uma âncora, com a semântica de link preservada. O estilo de
+botão MUST ser compartilhado por classe, e o componente de botão do base-ui MUST NOT emprestar sua
+tag a essa âncora.
+
 **Motivação:** a `api-fr` fecha o protocolo na entrada, mas um valor gravado antes dessa regra ou
 colado direto no banco ainda chegaria à tela. Um `javascript:` num `href` não é link quebrado — é
 script rodando no navegador de quem só queria o instalador. E sem `noopener`, a página de destino
@@ -106,6 +110,11 @@ recebe `window.opener` e pode navegar a aba do painel.
 
 - **WHEN** o arquivo ativo tem um endereço que não é http(s) ou não é uma URL válida
 - **THEN** o card informa que o endereço é inválido e não oferece o botão de baixar
+
+#### Scenario: Leitor de tela sobre o botão de baixar
+
+- **WHEN** o arquivo ativo tem endereço utilizável
+- **THEN** o elemento é anunciado como link, e não como botão
 
 ### Requirement: Versão e observação podem ser apagadas
 

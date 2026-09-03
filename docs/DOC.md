@@ -2036,6 +2036,17 @@ endereço inteiro fica no tooltip: é longo e roubaria a linha do nome. O link a
 `rel="noopener noreferrer"` — sem `noopener`, a página do arquivo recebe `window.opener` e pode navegar a
 aba do painel.
 
+**E é uma âncora de verdade, não um `Button` com `render`.** O botão do base-ui parte de
+`nativeButton: true`: ao receber um `<a>` pelo `render`, ele avisa no console que perdeu as semânticas
+nativas de botão. O `nativeButton={false}` cala o aviso e cria um problema pior — o `useButton` passa a
+carimbar `role="button"` no elemento (`internals/use-button/useButton.js`), e o leitor de tela anuncia
+"botão" para algo que navega. Aqui só o **estilo** é compartilhado, via `buttonVariants()`; a semântica
+continua sendo a do link. O `Button` sobrou para o único caso em que a coisa é mesmo inerte: endereço
+recusado, botão desabilitado.
+
+> Efeito colateral do acerto: a âncora passou a ter texto próprio, e a supressão de
+> `lint/a11y/useAnchorContent` — que existia só porque o rótulo era filho do `Button` — pôde sair.
+
 #### Tirar do ar preserva, e é o passo antes de publicar
 
 Não existe exclusão física nesta capacidade, e é acerto da `api-fr`: o registro inativo é o que responde

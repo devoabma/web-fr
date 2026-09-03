@@ -41,6 +41,10 @@
       tipo quando o registro não tem descrição
 - [x] 4.6 Botão de baixar com `target="_blank"` e `rel="noopener noreferrer"` — sem `noopener`, a
       página do arquivo recebe `window.opener` e pode navegar esta aba
+- [x] 4.8 Âncora de verdade vestida com `buttonVariants()`, e não o `Button` com `render`: o botão do
+      base-ui parte de `nativeButton: true` e, ao receber um `<a>`, avisa no console; com
+      `nativeButton={false}` ele carimba `role="button"`, e o leitor de tela anunciaria "botão" onde
+      há navegação. Só o caso sem link — que é mesmo inerte — continua sendo `Button`
 - [x] 4.7 Data de publicação só para ADMIN, e só quando a data é válida
 
 ## 5. Gestão (ADMIN)
@@ -77,6 +81,6 @@
 ## 8. Verificação
 
 - [x] 8.1 `npx tsc --noEmit` limpo
-- [x] 8.2 `npx biome check .` limpo — o `<a>` emprestado ao `Button` pelo `render` do base-ui exige
-      supressão nomeada da regra `useAnchorContent`, com `aria-label` respondendo pelo leitor de tela
+- [x] 8.2 `npx biome check .` limpo, sem supressão de regra: com a âncora própria (4.8) o texto
+      "Baixar" é filho dela, e `useAnchorContent` deixou de disparar
 - [x] 8.3 `npm run build` completo, com `/downloads` saindo dinâmica (lê cookie)

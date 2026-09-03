@@ -3,7 +3,7 @@
 import { format, isValid, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { DownloadIcon, LinkIcon, PackageIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { DOWNLOAD_KIND_HINTS, DOWNLOAD_KIND_LABELS } from '@/constants/download-kinds'
 import { cn } from '@/lib/utils'
@@ -108,25 +108,30 @@ export function DownloadCard({ download, isAdmin }: DownloadCardProps) {
           `javascript:` aqui não seria link quebrado, seria script rodando no navegador de quem
           apenas queria o instalador.
         */}
-        <Button
-          className="flex-1"
-          disabled={!link}
-          render={
-            link ? (
-              // O texto do link ("Baixar") é filho do `Button`, e não deste `<a>` — o `render` do
-              // base-ui só empresta a tag. O Biome enxerga a âncora vazia e reclama; o `aria-label`
-              // é o que de fato responde ao leitor de tela, e ainda nomeia o arquivo, que "Baixar"
-              // sozinho não distingue.
-              // biome-ignore lint/a11y/useAnchorContent: o conteúdo vem do Button que empresta a tag
-              <a aria-label={`Baixar ${name}`} href={link.href} target="_blank" rel="noopener noreferrer" />
-            ) : (
-              <button type="button" />
-            )
-          }
-        >
-          <DownloadIcon data-icon="inline-start" />
-          {link ? 'Baixar' : 'Link indisponível'}
-        </Button>
+        {/*
+          Âncora de verdade, vestida com `buttonVariants` — e não o `Button` com `render`. O botão do
+          base-ui parte de `nativeButton: true` e, ao emprestar a tag para um `<a>`, ou avisa no
+          console ou (com `nativeButton={false}`) carimba `role="button"` por cima, fazendo o leitor
+          de tela anunciar "botão" onde há navegação. Aqui só o estilo é compartilhado; a semântica
+          continua sendo a do link.
+        */}
+        {link ? (
+          <a
+            aria-label={`Baixar ${name}`}
+            className={cn(buttonVariants(), 'flex-1')}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <DownloadIcon data-icon="inline-start" />
+            Baixar
+          </a>
+        ) : (
+          <Button className="flex-1" disabled>
+            <DownloadIcon data-icon="inline-start" />
+            Link indisponível
+          </Button>
+        )}
 
         {isAdmin && (
           <>
