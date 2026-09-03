@@ -1,16 +1,5 @@
+import { formatDayKey } from '@/utils/day-key'
 import type { Period } from './period-filter'
-
-/**
- * `en-CA` formata como `2026-08-27`, que compara e ordena como texto — é o que deixa "últimos 7 dias"
- * ser um `>=` de strings. O fuso é o da Seccional: o corte do dia tem de ser a meia-noite do balcão,
- * não a de quem está com o navegador em outro lugar.
- */
-const dayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  timeZone: 'America/Fortaleza',
-})
 
 const MS_IN_DAY = 86_400_000
 
@@ -28,14 +17,14 @@ export function createPeriodMatcher(period: Period) {
 
   const now = Date.now()
 
-  const today = dayKeyFormatter.format(now)
-  const yesterday = dayKeyFormatter.format(now - MS_IN_DAY)
+  const today = formatDayKey(now)
+  const yesterday = formatDayKey(now - MS_IN_DAY)
   // O dia de hoje conta como o primeiro, senão "últimos 7 dias" mostraria oito.
-  const weekStart = dayKeyFormatter.format(now - 6 * MS_IN_DAY)
-  const monthStart = dayKeyFormatter.format(now - 29 * MS_IN_DAY)
+  const weekStart = formatDayKey(now - 6 * MS_IN_DAY)
+  const monthStart = formatDayKey(now - 29 * MS_IN_DAY)
 
   return (isoDate: string) => {
-    const day = dayKeyFormatter.format(new Date(isoDate))
+    const day = formatDayKey(new Date(isoDate))
 
     if (period === 'today') return day === today
     if (period === 'yesterday') return day === yesterday

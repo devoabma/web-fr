@@ -77,7 +77,7 @@ src/
 │       ├── admin/rooms/           # /admin/rooms — cadastro, listagem, edição e ativar/inativar sala (page + _components)
 │       ├── admin/computers/       # /admin/computers — cadastro, listagem, edição e exclusão (page + _components)
 │       ├── admin/employees/       # /admin/employees — cadastro, edição, vínculos e ativar/inativar (page + _components)
-│       ├── admin/reports/         # /admin/reports — casca: aviso do escopo ADMIN + "em construção"
+│       ├── admin/reports/         # /admin/reports — três relatórios, recorte por dia/mês/ano/intervalo, export .xlsx e PDF
 │       ├── printers/              # /printers — histórico de impressões (page + _components)
 │       ├── releases/              # /releases — histórico de liberações (page + _components + _data)
 │       ├── metrics/               # /metrics — métricas das liberações (page + _components + _data)
@@ -302,11 +302,16 @@ Confirmar antes de planejar as telas correspondentes.
 - **Relatórios** — parcialmente resolvido em **2026-09-01**. A change `aggregate-release-metrics` da
   `api-fr` criou `GET /lawyers/releases-metrics/:roomId?`, que agrega as **liberações** no Postgres
   (indicadores do ano, série por ano e por mês, ranking de salas e de advogados) e destravou
-  `/metrics` — com ela caíram os bloqueios de *uso por sala* e de *tempo médio por sessão*. Continuam
-  de fora: **impressões por advogado e sala**, que não têm rota agregada equivalente, e os
-  **relatórios de fechamento** por período, sala e colaborador, que é outro produto — métrica é
-  contagem para orientar a operação, relatório é o documento do período. A casca de `/admin/reports`
-  já existe esperando.
+  `/metrics` — com ela caíram os bloqueios de *uso por sala* e de *tempo médio por sessão*. Os
+  **relatórios de fechamento** saíram em **2026-09-03** e **não precisaram de rota nova**: a
+  verificação mostrou que `releases-metrics` nunca serviria a eles (conta por ano e não guarda hora,
+  duração nem primeira/última visita) e que `get-all-releases` já devolve tudo o que um relatório
+  precisa. Continuam de fora: **impressões por advogado e sala**, que não têm rota agregada
+  equivalente — e cujo histórico o expurgo semanal apaga de qualquer forma.
+- **`computer_sessions` não registra quem liberou** — a tabela guarda `computer_id` e `lawyer_id`, e
+  `release-computer.ts` cria a sessão sem vínculo com o funcionário que a autorizou. Por isso
+  `/admin/reports` **não oferece recorte por colaborador**, e não há como auditar quem autorizou uma
+  liberação fora do padrão. Precisa de uma coluna `employee_id` na `api-fr`.
 - **A rota de sessões não pagina nem aceita filtro algum** — nem por advogado, nem por data, ao contrário
   da de impressões. `/releases` filtra tudo no cliente porque não há para onde empurrar o trabalho. E o
   aperto chega antes aqui: impressões somem toda sexta, sessões ficam para sempre.
@@ -336,7 +341,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/releases` | `(private)` | histórico de liberações: filtros de sala (`?sala=`), período, situação e busca, com o desfecho de cada sessão e a duração das abertas andando na tela. **Somente leitura** — encerrar é do painel de operação. Aberta aos dois papéis |
 | `/metrics` | `(private)` | métricas das liberações: quatro indicadores do ano e quatro recortes (por ano, por mês, ranking de salas, ranking de advogados), com filtros de ano (`?ano=`) e sala (`?sala=`). Os números vêm **agregados do Postgres** por `GET /lawyers/releases-metrics/:roomId?` — a tela formata, não soma. **Somente leitura.** Aberta aos dois papéis |
 | `/downloads` | `(private)` | **casca**: cabeçalho, aviso do expurgo semanal e do recorte por salas vinculadas, e o bloco de "em construção". Espera a `api-fr` servir o arquivo de impressão pelo próprio domínio |
-| `/admin/reports` | `(private)` | **casca**: cabeçalho, aviso do escopo de `ADMIN` e o bloco de "em construção". Espera os relatórios de fechamento na `api-fr`. Só `ADMIN` — coberta pelo prefixo `/admin` |
+| `/admin/reports` | `(private)` | três relatórios de fechamento (advogados por sala, movimento por sala, ranking de advogados), recorte por dia/mês/ano/intervalo e exportação em `.xlsx` e PDF. Só `ADMIN` — coberta pelo prefixo `/admin` |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
@@ -1836,27 +1841,150 @@ operação.
 
 ---
 
-### Cascas de `/downloads` e `/admin/reports`
+### Relatórios de fechamento (`/admin/reports`)
 
-Duas rotas que existem sem conteúdo, de propósito. `/metrics` percorreu esse mesmo caminho: nasceu casca,
-com o aviso já escrito, e virou tela depois que a `api-fr` ofereceu o que preencher — e o `metrics-notice`
-atravessou a construção inteira **sem uma linha mudada**, o que é a prova de que o aviso não era rascunho.
+A tela que a diretoria usa para perguntar **quantos e quais advogados usaram determinada sala** num dia, num
+mês ou num ano — e sair com o arquivo na mão. Só `ADMIN`, e sempre sobre **todas as salas**: o relatório é
+documento, e dois diretores lendo o mesmo recorte precisam ver o mesmo número.
+
+Três relatórios sobre a mesma barra de filtros, um por vez, escolhido num `Select`:
+
+| Relatório | O que responde | Respeita o filtro de sala? |
+| --- | --- | --- |
+| **Advogados por sala** | a lista **nominal**: nome, inscrição, acessos, primeira e última visita, tempo | sim |
+| **Movimento por sala** | comparativo entre salas, com fatia do movimento | **não**, é ranking *entre* salas |
+| **Ranking de advogados** | quem mais recorre, e **em quantas salas diferentes** | **não**, é leitura transversal |
+
+Os dois últimos ignoram o filtro de propósito e **declaram isso na tela e no rodapé do arquivo**. Aplicá-lo
+tornaria impossíveis os próprios requisitos: não há como "incluir as salas sem liberação" numa folha
+recortada por uma sala, e a fatia de uma linha única valeria sempre 100%, que não é fatia de nada. É o mesmo
+comportamento do ranking de salas de `/metrics` e do `byRoom` da `api-fr`.
+
+#### Por que a agregação é no cliente, ao contrário de `/metrics`
+
+`/metrics` descartou explicitamente contar no navegador — o gráfico por ano exigia o histórico inteiro, e o
+custo crescia com o passado da Seccional. Aqui a decisão se inverte, e não por preferência:
+
+1. **A rota agregada não tem os campos.** `releases-metrics` devolve `{ lawyerId, name, oab, total }` por
+   ano. "Quem esteve na Sala 2 no dia 12/03, entrando às 9h04 e consumindo 47 minutos" não existe ali sob
+   nenhuma consulta. Não é escolha entre duas fontes.
+2. **O perfil de uso é outro.** `/metrics` é consulta rotineira, várias vezes por dia, inclusive no celular
+   do balcão. `/admin/reports` é tela de `ADMIN`, usada no fechamento, num desktop.
+3. **O custo é pago uma vez.** Uma consulta em cache alimenta os três relatórios e **todas** as trocas de
+   filtro — trocar de sala, de mês ou de relatório não dispara requisição nenhuma.
+
+Toda a agregação vive em `_data/reports-view.ts`, sem React nem JSX. É o **ponto único a trocar** no dia em
+que a `api-fr` aceitar `?de=&ate=`.
+
+#### O recorte de período
+
+`PeriodFilter` (hoje / ontem / últimos 7 dias) responde à operação do balcão e não sabe dizer "março de
+2025". Daí um seletor próprio, com quatro modos:
+
+| Modo | Controle | `?de=` |
+| --- | --- | --- |
+| Dia | `Calendar` do shadcn, em pt-BR | `2025-03-12` |
+| Mês | dois `Select` (mês + ano) | `2025-03` |
+| Ano | um `Select` | `2025` |
+| Intervalo | dois `Calendar` | data inicial, com `?ate=` |
+
+Mês e ano **não** ganham calendário: numa grade de dias, escolher "março de 2025" obrigaria a clicar num dia
+arbitrário para significar o mês inteiro.
+
+Três armadilhas de data que o código evita, e que erram silenciosamente quando não se olha para elas:
+
+- **A liberação entra no período pela data de início.** Uma sessão que começa 31/03 e termina 01/04 conta em
+  março.
+- **O corte do dia usa o fuso da Seccional**, num arquivo só (`src/utils/day-key.ts`). Uma segunda cópia
+  desse formatador é como um relatório passa a errar a virada do mês sem ninguém perceber.
+- **`new Date('2025-03-12')` é meia-noite UTC** e retrocede um dia em fuso a oeste — o calendário abriria
+  marcando 11 para quem escolheu 12. O `date-field` monta e lê o `Date` pelas partes locais.
+
+**Intervalo invertido é um estado à parte, não um recorte vazio.** Os dois se parecem na tela e significam o
+contrário: um relatório em branco seria lido como "não houve movimento" e viraria documento. O tipo obriga a
+tela a tratar o caso — só `status === 'ok'` chega às agregações. E ele só dispara quando **as duas** datas
+vieram legíveis do usuário: um `?de=` ilegível caindo em "hoje" acusaria de inverter datas quem não inverteu
+nada.
+
+#### Contagem honesta de tempo
+
+- **Sessão aberta não soma tempo.** Congelar um relógio que ainda corre faria o mesmo relatório, gerado dez
+  minutos depois, trazer outro número. Ela conta como acesso, e o resumo **declara quantas eram**.
+- **Teto de 24 h espelhado da `api-fr`** (`MAX_PLAUSIBLE_SESSION_HOURS`). Quando o serviço cai, o
+  `auto-close-sessions` fecha as sessões expiradas depois com `endedAt = now`, e uma duração de 30 horas fica
+  gravada para sempre — ela sozinha desloca a média de um mês.
+- **O arredondamento acontece na origem**, uma vez. Arredondar linha a linha faria a soma da tabela divergir
+  do resumo impresso acima dela: em 28 mil liberações a diferença medida foi de **83 minutos na mesma folha**
+  — e ela viajaria para o `.xlsx`, onde o Excel mostra a soma da coluna no rodapé.
+
+#### Exportação
+
+| | `.xlsx` | PDF |
+| --- | --- | --- |
+| Biblioteca | `write-excel-file` | `jspdf` + `jspdf-autotable` |
+| Origem | o modelo comum de `src/lib/export/` | o mesmo modelo |
+| Identificação | aba "Informações" | cabeçalho com a marca |
+
+**A planilha carrega tipo, não texto** — é o que a diretoria abre a planilha para usar. Data como `Date`
+(ordena cronologicamente e aceita filtro de período), minutos como número (soma no rodapé) e **inscrição da
+OAB como texto**, senão o Excel come o zero à esquerda de `00123`.
+
+Um detalhe que erraria em silêncio: **célula de data não guarda fuso**. Passar o instante cru jogaria a
+liberação das 23h30 de 31/03 para 1º/04 na planilha — o relatório de março perderia uma linha para abril,
+bem na virada, que é quando alguém confere. `toSpreadsheetDate` reancora o valor no fuso da Seccional.
+
+Os dados ficam **sozinhos na primeira aba**, a partir da linha 1. Pôr título e período acima da tabela, como
+no papel, quebraria o uso: ao ordenar uma coluna, o Excel arrastaria as linhas de cabeçalho junto.
+
+**O PDF é gerado do modelo, nunca do DOM.** Imprimir a tela pareceria mais barato e sairia errado — a tabela
+é paginada, então o papel teria só a página visível; não haveria como repetir o cabeçalho a cada quebra; e o
+navegador carimba URL e data nas margens de uma folha que vai para a diretoria. A marca do Sala Livre é
+desenhada **em vetor** (`brand-mark-pdf.ts`), traduzindo os arcos do `public/logo.svg` para curvas de Bézier:
+escala sem perda e não cria um asset binário para manter sincronizado.
+
+**As três bibliotecas entram por `dynamic import`**, dentro do handler do botão. Quem apenas **abre** a tela
+não paga o download de um gerador que só serve a quem **exporta** — só o `react-day-picker` do calendário
+entra no bundle da tela.
+
+**Recorte vazio não gera arquivo, e o botão some.** Um botão apagado convida a clicar e a procurar o motivo;
+e a folha timbrada com zero linhas circularia como se fosse resposta — "não houve movimento" é afirmação
+forte demais para sair de um recorte que talvez só esteja mal filtrado.
+
+#### O que a tela deliberadamente não faz
+
+- **Não promete recorte por colaborador.** `computer_sessions` guarda `computer_id` e `lawyer_id`, e
+  `release-computer.ts` cria a sessão sem registrar quem a autorizou — **o banco não sabe qual funcionário
+  atendeu**. O subtítulo anterior anunciava esse recorte; foi corrigido.
+- **Não tem relatório de impressões.** O cron `delete-weekly-prints` limpa o histórico toda sexta: um
+  "relatório de impressões de 2025" seria um documento oficial com número errado.
+- **Não age sobre sessões.** É leitura, como `/releases` e `/metrics`.
+
+O endereço carrega tudo (`?relatorio=`, `?sala=`, `?periodo=`, `?de=`, `?ate=`), porque **um relatório é um
+documento e um documento tem endereço**: "me manda o de março da Sala 2" precisa ser um link que abre
+exatamente aquilo noutra máquina, depois de um F5. Valor inválido cai no padrão em vez de deixar a tela em
+branco.
+
+---
+
+### Casca de `/downloads`
+
+Uma rota que existe sem conteúdo, de propósito. `/metrics` e `/admin/reports` percorreram esse mesmo
+caminho: nasceram cascas, com o aviso já escrito, e viraram tela quando houve o que preencher — e em ambas o
+aviso atravessou a construção com pouquíssima mudança, o que é a prova de que não era rascunho.
 
 | Rota | Papel | O que espera |
 | --- | --- | --- |
 | `/downloads` | ambos | a `api-fr` servir o arquivo de impressão pelo próprio domínio |
-| `/admin/reports` | só `ADMIN` | os relatórios de fechamento por período, sala e colaborador |
 
-Cada uma tem cabeçalho, o aviso do recorte que a `api-fr` **já garante hoje** (expurgo semanal e salas
-vinculadas numa; escopo de `ADMIN` e registro excluído que segue no histórico na outra) e um bloco tracejado
-declarando que o conteúdo está sendo construído.
+Tem cabeçalho, o aviso do recorte que a `api-fr` **já garante hoje** (expurgo semanal e salas vinculadas) e
+um bloco tracejado declarando que o conteúdo está sendo construído.
 
 > **Nenhum controle inerte.** Sem botão desabilitado, sem campo de filtro sem efeito, sem número de exemplo.
 > Um controle que não faz nada é pior que a ausência dele, porque faz o funcionário tentar.
 
-Nenhuma das duas entrou em `PUBLIC_ROUTES`: a política é **negar por padrão**, então `/downloads` nasce
-protegida sem registro nenhum, e `/admin/reports` é coberta pelo prefixo `/admin` de `ADMIN_ROUTES` — o
-`MEMBER` que digitar o endereço volta ao painel, e o item nem aparece na sidebar dele.
+Não entrou em `PUBLIC_ROUTES`: a política é **negar por padrão**, então `/downloads` nasce protegida sem
+registro nenhum. `/admin/reports` é coberta pelo prefixo `/admin` de `ADMIN_ROUTES` — o `MEMBER` que digitar
+o endereço volta ao painel, e o item nem aparece na sidebar dele.
 
 ---
 

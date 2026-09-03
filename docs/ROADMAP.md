@@ -370,7 +370,20 @@
 - [ ] ⛔ Impressões por advogado e sala — **bloqueado: não implementado na API**. As métricas cobrem
       *liberações*; a fila de impressão não tem rota agregada equivalente
 - [ ] ⛔ Baixar o arquivo de impressão em `/downloads` — **bloqueado: não implementado na API**
-- [ ] ⛔ Relatórios de fechamento em `/admin/reports` — **bloqueado: não implementado na API**
+- [x] Relatórios de fechamento em `/admin/reports` — três relatórios sobre a mesma barra de filtros:
+      **advogados por sala** (a lista nominal que a diretoria pede, com inscrição, acessos, primeira e
+      última visita), **movimento por sala** (comparativo, incluindo as salas paradas) e **ranking de
+      advogados** (quem mais recorre, e em quantas salas). Recorte por **dia, mês, ano ou intervalo**,
+      que o `PeriodFilter` compartilhado não sabe expressar. Exportação em **`.xlsx`** (data como data,
+      minutos como número, **inscrição como texto** para não perder o zero à esquerda) e **PDF** com a
+      marca do Sala Livre, gerado do modelo de dados e não do DOM — as três bibliotecas entram por
+      `dynamic import`, então quem só lê a tela não as baixa. **Não dependeu de rota nova**: a
+      agregação é no cliente sobre `get-all-releases`, porque `releases-metrics` conta por ano e não
+      guarda hora, duração nem primeira/última visita. O tempo soma **só sessões encerradas** e
+      espelha o teto de 24 h da `api-fr`. Tela **somente leitura**
+- [ ] ⛔ Relatório de produtividade **por colaborador** — **bloqueado: o dado não existe**.
+      `computer_sessions` guarda `computer_id` e `lawyer_id`; `release-computer.ts` cria a sessão sem
+      registrar quem a autorizou. Precisa de uma coluna `employee_id` na `api-fr`
 
 ---
 
@@ -414,12 +427,17 @@ Itens marcados com ⛔ dependem de trabalho na `api-fr`. Ordem sugerida para des
    download de verdade.
 3. **Eventos de negócio no WebSocket** — a única forma de o painel ver o que acontece fora dele sem
    voltar a repetir requisições.
-4. **Relatórios** de fechamento por período, sala e colaborador — é o que preenche a casca de
-   `/admin/reports`. Não se confunde com `/metrics`: métrica é contagem para orientar a operação,
-   relatório é o documento do período.
+4. **Recorte de data em `get-all-releases`** (`?de=&ate=`), ou uma rota `/reports` agregada. Hoje o
+   relatório de um único dia baixa o histórico inteiro para descartar 99% dele. O custo se paga
+   enquanto a tela é administrativa e esporádica, mas cresce junto com o passado da Seccional.
+5. **`employee_id` em `computer_sessions`** — sem ele não existe relatório de produtividade por
+   colaborador, nem auditoria de quem autorizou uma liberação fora do padrão.
 
 > **Resolvidos:** _liberar computador manualmente_ saiu desta lista — `POST /lawyers/release-computer` já
 > existia, é pública e recebe `macCode`; nunca foi bloqueio. _Restringir o CORS ao `WEB_URL`_ foi feito na
 > `api-fr` e habilitou a sessão por cookie `httpOnly`. _Uso por sala e computador_ e _tempo médio por
 > sessão_ saíram em **2026-09-01**: a change `aggregate-release-metrics` da `api-fr` levou a contagem
-> para o Postgres e destravou `/metrics`.
+> para o Postgres e destravou `/metrics`. _Relatórios de fechamento_ saiu em **2026-09-03** e **não
+> exigiu rota nova**: a verificação mostrou que `get-all-releases` já devolve tudo o que um relatório
+> precisa, e que `releases-metrics` — a rota agregada — nunca serviria, porque conta por ano e não
+> guarda hora, duração nem primeira/última visita.
