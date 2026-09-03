@@ -280,7 +280,7 @@
       atual entra no seletor mesmo inativa (senão o campo abriria vazio) e os números em uso desconsideram a
       própria máquina. A API não recusa máquina em uso aqui, ao contrário do delete: a tela avisa do efeito
       de trocar MAC ou sala com sessão aberta, mas não bloqueia
-- [x] Atualizar o aplicativo da estação agora (`POST /computers/update/:id`) — botão na própria linha que
+- [x] Atualizar o aplicativo da estação agora (`POST /computers/update-app/:id`) — botão na própria linha que
       empurra um `update_now` pelo WebSocket que a máquina já mantém aberto; ninguém alcança a estação por
       IP, é ela que fica pendurada no servidor. Ele **só aparece onde faz sentido**: quando a `api-fr` diz
       `outdated`, ou `unknown` com a estação no ar — máquina que a API garante em dia não ganha ação que ela
@@ -366,10 +366,13 @@
 - [x] Cascas de `/downloads` e `/admin/reports` no menu — cabeçalho, aviso do recorte já escrito e o
       bloco de "em construção", **sem controle inerte nenhum**. Mesmo caminho que `/metrics` percorreu:
       o endereço existe para o link não nascer quebrado e para o funcionário saber o que vem. As duas
-      dependem de trabalho na `api-fr` (itens 2 e 4 abaixo)
+      já viraram tela: `/admin/reports` logo abaixo, `/downloads` na seção 10 — esta última **mudou de
+      assunto no caminho** e hoje publica o instalador do Desktop, não o arquivo de impressão
 - [ ] ⛔ Impressões por advogado e sala — **bloqueado: não implementado na API**. As métricas cobrem
       *liberações*; a fila de impressão não tem rota agregada equivalente
-- [ ] ⛔ Baixar o arquivo de impressão em `/downloads` — **bloqueado: não implementado na API**
+- [ ] ⛔ Baixar o arquivo de impressão — **bloqueado: não implementado na API**. O destino deixou de ser
+      `/downloads`, que virou a tela dos instaladores: quando a `api-fr` servir o arquivo pelo próprio
+      domínio, o download nasce na linha de `/printers`, onde o arquivo já é listado
 - [x] Relatórios de fechamento em `/admin/reports` — três relatórios sobre a mesma barra de filtros:
       **advogados por sala** (a lista nominal que a diretoria pede, com inscrição, acessos, primeira e
       última visita), **movimento por sala** (comparativo, incluindo as salas paradas) e **ranking de
@@ -414,6 +417,38 @@
 - [ ] Conferir em aparelho real — instalação no Android, atalho no iPhone, tela de offline em modo avião
 - [ ] Botão "Instalar app" no painel (`beforeinstallprompt` no Android; instrução escrita no iOS)
 - [ ] ⚠️ **Depende do deploy**: a instalação só é oferecida em HTTPS
+
+---
+
+## 10. Downloads do Desktop
+
+- [x] `/downloads` publicando o **instalador e o desinstalador** do Sala Livre — **um espaço por tipo**,
+      ocupado ou vazio, que é a regra "um ativo por tipo" da `api-fr` virada em layout. Numa lista solta,
+      dois ativos do mesmo tipo (o que a API impede, mas que uma corrida entre dois ADMIN ainda produziria)
+      seriam duas linhas igualmente plausíveis; no slot, o segundo não tem onde caber. O botão de cadastrar
+      mora **no espaço vazio**, e é de lá que sai o tipo — sem seletor de `kind`, ninguém escolhe um tipo
+      ocupado para tomar `400` depois. **Duas leituras da mesma tela**: o MEMBER vê os arquivos e o botão de
+      baixar, o ADMIN vê também publicar, editar, tirar do ar e o histórico. O papel sai do **cookie no
+      servidor**, como no layout, então a ação de gestão não pisca na tela de quem não pode usá-la — e sem
+      sessão legível trata como MEMBER, menor privilégio. Quem autoriza continua sendo o proxy e a `api-fr`
+- [x] Tirar do ar **preserva** — a `api-fr` não tem exclusão física, e é acerto dela: o registro inativo é o
+      que responde para onde o link apontava antes, exatamente a informação de que se precisa quando o
+      executável novo sai quebrado. Reativar sai do histórico, e some quando já existe ativo do mesmo tipo,
+      trocado por uma frase que nomeia o passo que falta — botão desabilitado não dispara tooltip, e clique
+      que só devolve `400` não é ação, é armadilha
+- [x] Endereço **conferido de novo na tela** antes de virar `href` (`_data/download-link.ts`). A `api-fr`
+      fecha o protocolo na entrada, mas registro gravado antes disso, ou colado direto no banco, chegaria
+      aqui: um `javascript:` num `href` não é link quebrado, é script rodando no navegador de quem só queria
+      o instalador. Recusado, vira aviso em vez de botão. O mesmo parse alimenta o domínio e o nome do
+      arquivo do card; o endereço inteiro fica no tooltip, que é longo e roubaria a linha do nome
+- [x] Campo de versão ou observação **esvaziado apaga** (`null`), e no cadastro campo vazio nem viaja
+      (`undefined`) — a `api-fr` distingue os dois, e tratar esvaziado como "não informado" deixaria a versão
+      antiga colada num arquivo novo. **Não dependeu de rota nova**: as cinco rotas de `/downloads` já
+      existiam e foram lidas no repositório irmão antes de o cliente ser escrito
+- [x] 🐞 Correção do disparo de atualização do Desktop — o painel chamava `POST /computers/update/:id`, que
+      **não existe**: esse caminho só responde ao `PATCH`, e é a edição do cadastro. O disparo é
+      `POST /computers/update-app/:id`. O botão devolvia `404 Rota não encontrada` em produção, com os
+      cabeçalhos `X-Ratelimit-*` na resposta provando que a requisição chegava à API e morria no roteador
 
 ---
 

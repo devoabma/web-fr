@@ -81,7 +81,7 @@ src/
 │       ├── printers/              # /printers — histórico de impressões (page + _components)
 │       ├── releases/              # /releases — histórico de liberações (page + _components + _data)
 │       ├── metrics/               # /metrics — métricas das liberações (page + _components + _data)
-│       ├── downloads/             # /downloads — casca: aviso do expurgo + "em construção"
+│       ├── downloads/             # /downloads — instalador e desinstalador do Desktop (page + _components + _data)
 │       └── _components/shared/
 │           ├── filters/           # sala, período e o corte de período — reusados pelos históricos e por /metrics
 │           ├── panel-header/      # index.tsx (servidor) + panel-user.tsx e panel-status.tsx (ilhas cliente)
@@ -94,12 +94,14 @@ src/
 │       └── data-table/            # tabela reusável (TanStack v9): features, rodapé de paginação
 ├── constants/
 │   ├── query-keys.ts              # chaves do React Query, centralizadas
+│   ├── download-kinds.ts          # instalador/desinstalador, espelho do enum DownloadKinds da api-fr
 │   └── ufs.ts                     # as 27 UFs, espelho da lista fechada da api-fr
 ├── server/                        # funções de acesso à api-fr, uma por endpoint
 │   ├── employees/                 # perfil, login, logout, troca de senha, CRUD, vínculos e ativar/inactive
 │   ├── rooms/                     # get-all, create, activate e inactive (PATCH /rooms/deactivate/:id)
-│   ├── computers/                 # get-all, create, update, delete, conectadas e entrada/saída de manutenção
+│   ├── computers/                 # get-all, create, update, delete, conectadas, manutenção e update-app (POST /computers/update-app/:id)
 │   ├── printers/                  # get-all (roomId opcional no caminho)
+│   ├── downloads/                 # get-all, create, update, activate e inactive (PATCH /downloads/deactivate/:id)
 │   └── lawyers/                   # sessões: listar (roomId opcional), liberar, encerrar e métricas agregadas
 ├── hooks/
 │   ├── use-mobile.ts              # breakpoint de 768px, usado pela sidebar
@@ -297,8 +299,9 @@ Confirmar antes de planejar as telas correspondentes.
 - **Baixar arquivo da fila de impressão** — a listagem existe e a tela `/printers` já a consome, mas o
   download não. O `fileUrl` aponta para o Storage, em outro domínio, onde `<a download>` é ignorado pelo
   navegador: a tela **abre** o arquivo em aba nova, que é o máximo honesto daqui. Vira download de verdade
-  no dia em que a `api-fr` servir o arquivo pelo próprio domínio — a casca de `/downloads` já existe
-  esperando, com o prazo do expurgo escrito no aviso.
+  no dia em que a `api-fr` servir o arquivo pelo próprio domínio. **O destino deixou de ser `/downloads`**:
+  aquela casca virou a tela dos instaladores do Desktop em 2026-09-03, e o download da impressão nasce onde
+  o arquivo já é listado, na linha de `/printers`.
 - **Relatórios** — parcialmente resolvido em **2026-09-01**. A change `aggregate-release-metrics` da
   `api-fr` criou `GET /lawyers/releases-metrics/:roomId?`, que agrega as **liberações** no Postgres
   (indicadores do ano, série por ano e por mês, ranking de salas e de advogados) e destravou
@@ -340,7 +343,7 @@ Confirmar antes de planejar as telas correspondentes.
 | `/printers` | `(private)` | histórico de impressões: filtros de sala (`?sala=`), período e busca, tabela com o arquivo em aba nova e aviso do expurgo semanal. Aberta aos dois papéis — o escopo por sala é o que a `api-fr` já resolve |
 | `/releases` | `(private)` | histórico de liberações: filtros de sala (`?sala=`), período, situação e busca, com o desfecho de cada sessão e a duração das abertas andando na tela. **Somente leitura** — encerrar é do painel de operação. Aberta aos dois papéis |
 | `/metrics` | `(private)` | métricas das liberações: quatro indicadores do ano e quatro recortes (por ano, por mês, ranking de salas, ranking de advogados), com filtros de ano (`?ano=`) e sala (`?sala=`). Os números vêm **agregados do Postgres** por `GET /lawyers/releases-metrics/:roomId?` — a tela formata, não soma. **Somente leitura.** Aberta aos dois papéis |
-| `/downloads` | `(private)` | **casca**: cabeçalho, aviso do expurgo semanal e do recorte por salas vinculadas, e o bloco de "em construção". Espera a `api-fr` servir o arquivo de impressão pelo próprio domínio |
+| `/downloads` | `(private)` | instalador e desinstalador do Sala Livre, um espaço por tipo. Aberta aos dois papéis: o MEMBER baixa, o ADMIN também publica, edita, tira do ar e enxerga o histórico dos endereços anteriores. **Dinâmica** — o papel sai do cookie no servidor |
 | `/admin/reports` | `(private)` | três relatórios de fechamento (advogados por sala, movimento por sala, ranking de advogados), recorte por dia/mês/ano/intervalo e exportação em `.xlsx` e PDF. Só `ADMIN` — coberta pelo prefixo `/admin` |
 | `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
 | `not-found.tsx` | — | 404 do produto, pronta |
@@ -1276,7 +1279,7 @@ sem versão é o sintoma de instalação que nunca subiu.
 
 #### Atualizar o aplicativo da estação agora
 
-`POST /computers/update/:id` é `ADMIN`-only e faz uma coisa só: empurra um `update_now` pelo canal que o
+`POST /computers/update-app/:id` é `ADMIN`-only e faz uma coisa só: empurra um `update_now` pelo canal que o
 Desktop **já mantém aberto**. Ninguém alcança a estação por IP — é ela que fica pendurada no WebSocket. Sem
 esse pedido, a máquina consulta o manifesto sozinha a cada 6 horas; com ele, agora.
 
@@ -1966,25 +1969,116 @@ branco.
 
 ---
 
-### Casca de `/downloads`
+### Downloads do Desktop (`/downloads`)
 
-Uma rota que existe sem conteúdo, de propósito. `/metrics` e `/admin/reports` percorreram esse mesmo
-caminho: nasceram cascas, com o aviso já escrito, e viraram tela quando houve o que preencher — e em ambas o
-aviso atravessou a construção com pouquíssima mudança, o que é a prova de que não era rascunho.
+Desde **2026-09-03** a rota deixou de ser casca — e **mudou de assunto**. Ela nasceu esperando a `api-fr`
+servir o arquivo da fila de impressão pelo próprio domínio, bloqueio que continua de pé; o que a `api-fr`
+entregou foi outra coisa, a capacidade `downloads`: cinco rotas que publicam o **instalador e o
+desinstalador do Sala Livre**. O aviso da tela foi reescrito junto, porque o antigo falava do expurgo
+semanal das impressões.
 
-| Rota | Papel | O que espera |
+O vazio que ela fecha é concreto: quem precisava pôr uma estação em operação pedia o executável a alguém —
+e-mail, pendrive, grupo do WhatsApp. Não havia lugar oficial que respondesse "o instalador é **este**".
+
+| Rota | Método | Papel | Papel na tela |
+| --- | --- | --- | --- |
+| `/downloads/get-all` | `GET` | logado | lista os arquivos; **ADMIN recebe também os inativos** |
+| `/downloads/create` | `POST` | ADMIN | publica; `400` quando já há ativo do mesmo tipo |
+| `/downloads/update/:id` | `PATCH` | ADMIN | corpo parcial, **sem `kind`** |
+| `/downloads/deactivate/:id` | `PATCH` | ADMIN | tira do ar (soft delete, grava `inactive`) |
+| `/downloads/activate/:id` | `PATCH` | ADMIN | devolve ao ar |
+
+#### Um espaço por tipo, e não uma lista
+
+A escolha central. A `api-fr` garante **um arquivo ativo por tipo** (`ensure-single-active.ts`, checado
+antes de gravar), e a tela desenha essa regra em vez de a repetir num aviso: existem dois lugares —
+instalador e desinstalador —, e cada um está ocupado ou vazio.
+
+Numa lista solta, dois instaladores ativos (o que a API impede, mas que uma corrida entre dois ADMIN ainda
+produziria) apareceriam como duas linhas igualmente plausíveis. No slot, o segundo não tem onde caber, e a
+duplicidade fica visível. O `find` que escolhe o ativo confia na ordenação que a API já aplica
+(`kind asc`, `createdAt desc`): mesmo no caso patológico, aparece o mais recente.
+
+**O botão de cadastrar mora no espaço vazio**, e é de lá que sai o `kind` — não há seletor de tipo no
+formulário. Com um seletor livre, o ADMIN escolheria um tipo já ocupado e descobriria o problema só no
+`400`.
+
+#### Duas leituras da mesma tela
+
+O papel sai do **cookie, no servidor** (`readSession` em `page.tsx`, como no layout do painel), e decide
+subtítulo, aviso, ações e histórico. Sem sessão legível, trata como **MEMBER** — menor privilégio.
+
+| | MEMBER | ADMIN |
 | --- | --- | --- |
-| `/downloads` | ambos | a `api-fr` servir o arquivo de impressão pelo próprio domínio |
+| Arquivos ativos e botão de baixar | ✅ | ✅ |
+| Publicar, editar, tirar do ar | — | ✅ |
+| Histórico dos inativos | — | ✅ (a API nem os envia aos outros papéis) |
+| Data de publicação no card | — | ✅ |
 
-Tem cabeçalho, o aviso do recorte que a `api-fr` **já garante hoje** (expurgo semanal e salas vinculadas) e
-um bloco tracejado declarando que o conteúdo está sendo construído.
+> **Isto não é controle de acesso.** Quem autoriza continua sendo o `proxy.ts` e a `api-fr`, que só devolve
+> inativos e só aceita escrita de ADMIN. Resolver o papel no servidor resolve outra coisa: o HTML já sai com
+> as ações certas, e o botão de gestão não pisca na tela de quem não pode usá-lo.
 
-> **Nenhum controle inerte.** Sem botão desabilitado, sem campo de filtro sem efeito, sem número de exemplo.
-> Um controle que não faz nada é pior que a ausência dele, porque faz o funcionário tentar.
+#### O endereço é conferido de novo antes de virar link
 
-Não entrou em `PUBLIC_ROUTES`: a política é **negar por padrão**, então `/downloads` nasce protegida sem
-registro nenhum. `/admin/reports` é coberta pelo prefixo `/admin` de `ADMIN_ROUTES` — o `MEMBER` que digitar
-o endereço volta ao painel, e o item nem aparece na sidebar dele.
+`_data/download-link.ts` roda o `URL` sobre o valor e devolve `null` para qualquer coisa que não seja
+`http:`/`https:` — e para endereço malformado. Sem link utilizável, o card mostra um aviso **no lugar** do
+botão.
+
+É validação repetida de propósito. A `api-fr` fecha o protocolo **na entrada**; um registro gravado antes
+dessa regra existir, ou colado direto no banco, atravessaria a listagem e viraria `href`. E `href` não é
+campo de exibição: um `javascript:` ali é script executando no navegador de quem só queria o instalador. O
+custo da conferência é uma chamada de `URL` por card; o custo de não fazê-la é XSS.
+
+O mesmo parse alimenta o que a tela mostra — `host` responde *"isto veio de quem?"*, `fileName` responde
+*"baixei a coisa certa?"* (com `decodeURIComponent`, porque o nome viaja escapado e é lido por gente). O
+endereço inteiro fica no tooltip: é longo e roubaria a linha do nome. O link abre em nova aba com
+`rel="noopener noreferrer"` — sem `noopener`, a página do arquivo recebe `window.opener` e pode navegar a
+aba do painel.
+
+#### Tirar do ar preserva, e é o passo antes de publicar
+
+Não existe exclusão física nesta capacidade, e é acerto da `api-fr`: o registro inativo é o que responde
+*para onde este link apontava antes* — a informação de que se precisa justamente quando o executável novo
+sai quebrado. Tirar do ar é também o passo **obrigatório** antes de publicar outro arquivo do mesmo tipo, e
+a confirmação diz isso, porque quem chega ali costuma estar no meio de uma troca de versão.
+
+Reativar sai do histórico. Quando já existe ativo do mesmo tipo, o botão **não aparece desabilitado**: a
+linha mostra, no lugar dele, *"tire o instalador atual do ar para reativar este"*. Botão desabilitado não
+recebe evento de ponteiro na maior parte dos navegadores, então o tooltip que explicaria o bloqueio nunca
+apareceria — e um clique que só devolve `400` não é ação, é armadilha.
+
+> É a mesma preocupação de `/admin/computers`, resolvida ao contrário. Lá o botão fica travado com
+> `aria-disabled` e o motivo no tooltip, porque a ação é a mesma e só está indisponível *agora*. Aqui falta
+> um passo anterior, e o texto que nomeia esse passo vale mais que o botão.
+
+#### `null` apaga, ausência mantém
+
+A `api-fr` distingue os dois com `!== undefined` em `description` e `version`, e o painel respeita nos dois
+sentidos: no **cadastro**, campo vazio vira `undefined` e some do corpo (o registro nasce com `null` em vez
+de `''`); na **edição**, campo esvaziado vira `null` e apaga. Um link que perde o número de versão é edição
+legítima — tratar isso como "campo não informado" deixaria a versão antiga colada num arquivo novo.
+
+O `reset` do formulário de edição acontece **na abertura**, e não no fechamento: entre uma edição e outra o
+registro pode ter mudado no servidor, e o diálogo precisa abrir com o que está valendo agora.
+
+#### Detalhes que vieram de tela anterior
+
+- **Cor**: verde para o instalador, cinza para o desinstalador — os mesmos "disponível" e "manutenção" do
+  Painel de Liberações. O instalador põe a estação em operação; o desinstalador se usa quando ela sai.
+- **Versão em `tabular-nums`**, igual à coluna Desktop de `/admin/computers`: é assim que o operador compara
+  a olho o que a estação tem com o que está publicado.
+- **Nada fecha no meio da chamada** — diálogo, painel lateral e confirmação ignoram o pedido de fechar
+  enquanto a requisição está de pé. O toast de erro chegaria sem o formulário na tela para corrigir, e a URL
+  é longa de recolar.
+- **Erros pelo `api-error`**: a mensagem da `api-fr` é repassada crua porque ela nomeia o registro que está
+  no caminho, e o `429` vira espera formatada.
+
+> 🐞 **Correção que saiu junto (2026-09-03).** O pedido de atualização do Desktop em `/admin/computers`
+> chamava `POST /computers/update/:id` e devolvia `404 Rota não encontrada` em produção. Esse caminho só
+> responde ao `PATCH`, e é a edição do cadastro; o disparo é `POST /computers/update-app/:id`. Os
+> cabeçalhos `X-Ratelimit-*` vinham na resposta do 404 — a requisição chegava à API e morria no roteador,
+> não em CORS nem em autenticação.
 
 ---
 
