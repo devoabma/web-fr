@@ -7,5 +7,6 @@ export const queryKeys = {
   getReleases: (roomId?: string) => ['releases', roomId] as const,
   getOnlineComputers: (roomId?: string) => ['computers-online', roomId] as const,
   getPrinters: (roomId?: string) => ['printers', roomId] as const,
+  getDownloads: () => ['downloads'] as const,
   getReleasesMetrics: (roomId?: string, year?: number) => ['releases-metrics', roomId, year] as const,
 }
