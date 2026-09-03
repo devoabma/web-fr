@@ -12,7 +12,7 @@ As duas metades que faltavam chegaram na `api-fr`:
   **agora**, lido do mapa em memória) e `updateStatus` (`outdated` | `up-to-date` | `unknown`, decidido no
   servidor contra a versão publicada), e a trazer no envelope um `latestVersion` com a versão publicada,
   as `notas` do manifesto e a data de publicação;
-- `POST /computers/update/:id` (ADMIN) empurra um `update_now` pelo canal que a estação já mantém aberto.
+- `POST /computers/update-app/:id` (ADMIN) empurra um `update_now` pelo canal que a estação já mantém aberto.
 
 Esta change transforma isso em uma ação na linha da tabela de `/admin/computers`: a máquina que precisa
 atualizar ganha um botão que só ela tem, e um clique manda a estação buscar a versão nova agora, sem
@@ -25,7 +25,7 @@ esperar o ciclo de 6 horas dela e sem ninguém sair do balcão.
   `latestVersion: LatestAppVersionProps | null`. Novos tipos exportados `ComputerUpdateStatus` e
   `LatestAppVersionProps`.
 - **`src/server/computers/update-app.ts`** (novo): `updateComputerApp(computerId)` sobre
-  `POST /computers/update/:id`, documentado com as três recusas previstas (`400` em uso ou já em dia, `409`
+  `POST /computers/update-app/:id`, documentado com as três recusas previstas (`400` em uso ou já em dia, `409`
   desconectada, `429` teto de disparos) e com o que a resposta `200` significa — recado entregue, nunca
   atualização concluída.
 - **`_components/update-computer-app.tsx`** (novo): botão de ação da linha mais o diálogo de confirmação.
@@ -48,7 +48,7 @@ esperar o ciclo de 6 horas dela e sem ninguém sair do balcão.
 - **Nenhuma requisição nova para desenhar a tela.** `isOnline`, `updateStatus` e `latestVersion` vêm de
   carona na listagem que a tabela já busca; o componente lê o envelope da **mesma `queryKey`** pela cache do
   React Query, em vez de descer a versão publicada por props através das colunas.
-- **Depende da `api-fr` com `POST /computers/update/:id`.** Contra uma API antiga, `updateStatus` não vem,
+- **Depende da `api-fr` com `POST /computers/update-app/:id`.** Contra uma API antiga, `updateStatus` não vem,
   a condição de exibição não é satisfeita e o botão simplesmente não aparece — a tabela não quebra.
 - **A confirmação é do envio, não da troca.** Baixar ~60 MB, conferir assinatura e SHA-256, rodar o
   autoteste e reiniciar leva minutos. A prova de que deu certo é a versão nova aparecendo na coluna

@@ -1,5 +1,13 @@
 ## Context
 
+> ⚠️ **Correção (2026-09-03):** esta change implementou o disparo sobre `POST /computers/update/:id`,
+> caminho que não existe. `/computers/update/:id` só responde ao `PATCH`, e é a edição do cadastro do
+> computador; o disparo é `POST /computers/update-app/:id`. Em produção o botão devolvia
+> `404 Rota não encontrada` — com os cabeçalhos `X-Ratelimit-*` na resposta, prova de que a
+> requisição chegava à API e morria no roteador. A task 6.4 dizia "contrato conferido na `api-fr`" e
+> não estava. Corrigido na change `publicacao-de-downloads`, cujo `design.md` guarda o detalhe.
+
+
 Até aqui o painel só olhava para o parque. A versão instalada era informação passiva: aparecia na grade e na
 tabela, e o que fazer com ela era problema de quem ia até a máquina. A `api-fr` fechou o circuito ao expor o
 canal que já existia — o Desktop fica pendurado no WebSocket, ninguém alcança a estação por IP —, e agora o

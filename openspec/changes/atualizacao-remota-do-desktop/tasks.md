@@ -12,7 +12,7 @@
 
 ## 2. Cliente do disparo (concluída)
 
-- [x] 2.1 `updateComputerApp(computerId)` sobre `POST /computers/update/:id`
+- [x] 2.1 `updateComputerApp(computerId)` sobre `POST /computers/update-app/:id`
 - [x] 2.2 `UpdateComputerAppResponse` com `message`, `macCode` e `version` opcional
 - [x] 2.3 `version` documentada como opcional porque a API pode ainda não saber qual é a publicada
 - [x] 2.4 Documentado que o `200` confirma o **envio do recado**, nunca a atualização
@@ -61,8 +61,10 @@
 - [x] 6.1 `pnpm exec tsc --noEmit` sem erros
 - [x] 6.2 `pnpm biome check --write` sem apontamentos
 - [x] 6.3 `pnpm build` concluído
-- [x] 6.4 Contrato conferido na `api-fr`: `POST /computers/update/:id` registrado com prefixo `/computers`,
-      `params.id` como `cuid2`, respostas `200/400/401/404/409` e `checkIfEmployeeIsAdmin`
+- [x] 6.4 Contrato conferido na `api-fr`: `POST /computers/update-app/:id` registrado com prefixo `/computers`,
+      `params.id` como `cuid2`, respostas `200/400/401/404/409` e `checkIfEmployeeIsAdmin` — ⚠️ **esta
+      conferência não aconteceu de verdade**: o cliente saiu chamando `POST /computers/update/:id`, que
+      não existe, e o botão devolvia `404` em produção. Caminho corrigido em 2026-09-03
 - [x] 6.5 Conferido que `isOnline`, `updateStatus` e `latestVersion` estão no schema de resposta de
       `GET /computers/get-all`
 - [x] 6.6 Conferido o teto de `rateLimits.updateComputerApp`: 10 a cada 5 minutos, por IP + computador

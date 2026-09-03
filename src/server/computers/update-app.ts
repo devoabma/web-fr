@@ -10,6 +10,10 @@ interface UpdateComputerAppResponse {
 /**
  * Manda a estação consultar o manifesto e atualizar **agora**, sem esperar o ciclo de 6 horas dela.
  *
+ * O caminho é `POST /computers/update-app/:id` — **não** `/computers/update/:id`, que é o `PATCH` do
+ * cadastro da máquina. A api-fr separou os dois de propósito: mesma URL com verbos diferentes fazendo
+ * coisas sem nada em comum é erro esperando acontecer.
+ *
  * A api-fr empurra um `update_now` pelo WebSocket que a máquina já mantém aberto — ninguém alcança a
  * estação por IP, é ela que fica pendurada no servidor.
  *
@@ -23,7 +27,7 @@ interface UpdateComputerAppResponse {
  * - `429` teto de disparos por máquina (10 a cada 5 minutos).
  */
 export async function updateComputerApp(computerId: string): Promise<UpdateComputerAppResponse> {
-  const response = await API.post<UpdateComputerAppResponse>(`/computers/update/${computerId}`)
+  const response = await API.post<UpdateComputerAppResponse>(`/computers/update-app/${computerId}`)
 
   return response.data
 }
