@@ -62,6 +62,9 @@
 ## 9. Próximos passos (fora desta change)
 
 - [ ] 9.1 Criar a rota `/painel` para a qual o CTA do hero aponta
-- [ ] 9.2 Criar as rotas `/privacidade`, `/suporte` e `/status` do rodapé
+- [x] 9.2 Criar as rotas do rodapé — feitas como `/privacy` e `/support` (URL em inglês, a
+      convenção do repositório). `/status` foi **descartada**: sem monitoramento externo, uma
+      página de status servida pelo próprio domínio não consegue reportar a própria queda. Ver
+      `paginas-de-privacidade-e-suporte`
 - [ ] 9.3 Definir o cliente HTTP da `api-fr`, incluindo o tratamento de `429` com `retryAfterInSeconds`
 - [ ] 9.4 Implementar a autenticação do funcionário (`POST /employees/session/auth`)

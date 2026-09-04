@@ -6,7 +6,7 @@
  */
 
 /** Alcançáveis sem sessão. Casam por segmento: `/support` cobre `/support/contato`. */
-export const PUBLIC_ROUTES = ['/', '/privacy', '/support', '/status'] as const
+export const PUBLIC_ROUTES = ['/', '/privacy', '/support'] as const
 
 /** Fluxo de autenticação — exclusivo de quem NÃO tem sessão (`/auth/sign-in`, `/auth/forgot-password`, ...). */
 export const AUTH_ROUTES = ['/auth'] as const

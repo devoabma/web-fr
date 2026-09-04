@@ -67,6 +67,8 @@ src/
 │   ├── page.tsx                   # composição da landing
 │   ├── not-found.tsx              # 404 do produto
 │   ├── (public)/                  # rotas sem sessão
+│   │   ├── privacy/               # /privacy — política de privacidade (LGPD)
+│   │   ├── support/               # /support — guia de atendimento
 │   │   └── auth/
 │   │       ├── layout.tsx         # split: painel de marca + área de formulário
 │   │       └── sign-in/           # login (page + _components)
@@ -89,10 +91,12 @@ src/
 ├── components/
 │   ├── app/                       # uma seção/feature por arquivo
 │   │   ├── client-providers.tsx   # Toaster + QueryClientProvider, montado pelo layout RAIZ
+│   │   ├── legal-page.tsx         # casca e blocos de texto de /privacy e /support
 │   │   └── service-worker-registrar.tsx  # registra o worker em produção, desregistra em dev
 │   └── ui/                        # primitivas shadcn/base-ui
 │       └── data-table/            # tabela reusável (TanStack v9): features, rodapé de paginação
 ├── constants/
+│   ├── contact.ts                 # e-mail de atendimento, único para /privacy e /support
 │   ├── query-keys.ts              # chaves do React Query, centralizadas
 │   ├── download-kinds.ts          # instalador/desinstalador, espelho do enum DownloadKinds da api-fr
 │   └── ufs.ts                     # as 27 UFs, espelho da lista fechada da api-fr
@@ -123,7 +127,9 @@ public/
 ├── offline.html                   # tela de ausência de conexão, sem dependência do Next
 ├── fr-icon.svg / logo.svg         # marca do produto
 ├── icons/                         # ícones do app instalado (any, maskable, apple-touch)
-└── assets/logo-cliente.png        # marca branca da instituição
+└── assets/
+    ├── logo-cliente.png           # marca branca da instituição
+    └── sala-livre-content.png     # print do painel exibido na landing
 
 scripts/
 └── generate-pwa-icons.mjs         # gera os PNGs de public/icons a partir do fr-icon.svg
@@ -224,6 +230,10 @@ Além do logout, a sessão termina por expiração (1 dia) ou quando o `proxy.ts
 A regra é **negar por padrão**: só é público o que estiver em `PUBLIC_ROUTES`. Rota nova do painel nasce
 protegida sem ninguém precisar lembrar de registrá-la — e rota pública nova **precisa** ser registrada, ou
 cai no login. O casamento é por segmento, para `/administrativo` não casar com `/admin`.
+
+Hoje `PUBLIC_ROUTES` são três: `/`, `/privacy` e `/support`. A lista é também a contrapartida dos links do
+rodapé — um destino listado ali **sem página construída** vira uma 404 pública alcançável por quem digitar o
+endereço, e não só um link morto. Foi o que aconteceu com `/status`, removida das duas pontas.
 
 O corte de `/admin/*` por papel acontece em **dois lugares independentes**: aqui, barrando o alcance, e na
 sidebar (`adminOnly` sobre `NAV_SECTIONS`), escondendo o que não se alcança. Um é acesso, o outro é
@@ -345,7 +355,8 @@ Confirmar antes de planejar as telas correspondentes.
 | `/metrics` | `(private)` | métricas das liberações: quatro indicadores do ano e quatro recortes (por ano, por mês, ranking de salas, ranking de advogados), com filtros de ano (`?ano=`) e sala (`?sala=`). Os números vêm **agregados do Postgres** por `GET /lawyers/releases-metrics/:roomId?` — a tela formata, não soma. **Somente leitura.** Aberta aos dois papéis |
 | `/downloads` | `(private)` | instalador e desinstalador do Sala Livre, um espaço por tipo. Aberta aos dois papéis: o MEMBER baixa, o ADMIN também publica, edita, tira do ar e enxerga o histórico dos endereços anteriores. **Dinâmica** — o papel sai do cookie no servidor |
 | `/admin/reports` | `(private)` | três relatórios de fechamento (advogados por sala, movimento por sala, ranking de advogados), recorte por dia/mês/ano/intervalo e exportação em `.xlsx` e PDF. Só `ADMIN` — coberta pelo prefixo `/admin` |
-| `/privacy`, `/support`, `/status` | — | **linkadas pelo rodapé, não existem**; declaradas em `PUBLIC_ROUTES` |
+| `/privacy` | `(public)` | política de privacidade (LGPD), dez seções escritas sobre os dados que a `api-fr` realmente guarda. Estática, linkada pelo rodapé |
+| `/support` | `(public)` | guia de atendimento, com a parte 1 titulada pelas recusas de liberação que a `api-fr` devolve. Estática, linkada pelo rodapé |
 | `not-found.tsx` | — | 404 do produto, pronta |
 
 > Não existe `/auth/sign-up`: cadastro de funcionário é `POST /employees/create-account`, ação restrita a
@@ -355,6 +366,11 @@ Confirmar antes de planejar as telas correspondentes.
 > `PUBLIC_ROUTES` (`src/lib/auth/routes.ts`) — senão o `proxy.ts` a redireciona para o login e nem a 404
 > aparece. Foi o que aconteceu com o rodapé, que apontava para `/privacidade` e `/suporte` enquanto a lista
 > declarava `/privacy` e `/support`; os `href` foram alinhados à convenção de URLs em inglês.
+
+> ⚠️ **E o inverso também morde:** um caminho em `PUBLIC_ROUTES` **sem página construída** não é inofensivo —
+> é uma 404 pública alcançável por quem digitar o endereço. `/status` ficou assim até ser removida das duas
+> pontas (rodapé e lista). Não existe monitoramento externo para sustentar uma página de status; a saúde da
+> API é mostrada onde serve, no selo do cabeçalho do painel.
 
 > **As telas de recuperação não vão para `PUBLIC_ROUTES`.** Elas caem em `AUTH_ROUTES` (`/auth`), que é
 > mais estrito: alcançável só por quem **não** tem sessão. Quem já está logado e tenta abrir
@@ -2093,6 +2109,56 @@ registro pode ter mudado no servidor, e o diálogo precisa abrir com o que está
 
 ---
 
+### Páginas públicas de texto (`/privacy` e `/support`)
+
+Desde **2026-09-04** o rodapé aponta para páginas que existem. As duas são estáticas, não leem cookie e não
+chamam a `api-fr`.
+
+**A política não é modelo pronto.** A seção 2 foi escrita a partir do que o schema da `api-fr` realmente
+persiste, ator por ator:
+
+| Onde | O que é guardado | Seção |
+| --- | --- | --- |
+| Usuário atendido | CPF, data de nascimento, inscrição profissional, situação cadastral | 2.1 |
+| Sessão de uso | início, fim, sala e computador | 2.1 |
+| Funcionário / administrador | nome, CPF, e-mail, foto, papel, salas vinculadas | 2.2 |
+| Computador | identificação, MAC, sala, situação de uso e de manutenção | 2.3 |
+| Impressão | arquivo enviado + sessão e equipamento de origem | 2.4 |
+
+O MAC está nomeado de propósito: sozinho é identificador de equipamento, mas cruzado com o histórico de
+sessões permite reconstruir quem usou o quê. A validação cadastral contra sistema externo também está dita
+com todas as letras — transferência para terceiro é exatamente o que o titular tem direito de saber sem
+precisar perguntar.
+
+**O suporte é organizado pela tela, não pelo sistema.** As subseções da parte 1 têm por título a situação
+que a pessoa está vendo, e espelham uma a uma as recusas de liberação da `api-fr`: dados que não conferem,
+cadastro inativo, condição de acesso não atendida, computador em manutenção, computador em uso, sessão já
+ativa e limite de uso atingido. O que varia por instalação (cota, tempo de sessão, condições extras) é
+descrito como "conforme as regras configuradas para o ambiente" — número cravado estaria errado na próxima
+seccional.
+
+**A casca é `components/app/legal-page.tsx`**, reaproveitando `Header`, `Footer` e `GridOverlay` da landing.
+Os seis blocos (`LegalSection`, `LegalSubsection`, `LegalText`, `LegalStrong`, `LegalList`, `LegalContact`)
+não têm lógica: carregam o ritmo tipográfico e nada mais. O conteúdo mora nas páginas, em JSX legível, onde
+um advogado consegue apontar a frase a corrigir.
+
+`@tailwindcss/typography` foi descartado: o `prose` traz uma escala tipográfica que não é a da landing, e
+alinhar as duas viraria uma lista de `prose-headings:…` maior do que os seis componentes — mais uma
+dependência para estilizar duas páginas.
+
+`LegalContact` tem peso visual próprio porque o canal de atendimento é a única ação concreta destas páginas,
+e a LGPD espera que o titular o encontre sem ler o documento inteiro. O endereço vem de
+`src/constants/contact.ts`: aparece nas duas páginas, e divergir é pior do que não ter — o titular escreve
+para uma caixa que ninguém lê e conclui que foi ignorado.
+
+`updatedAt` é opcional na casca. Só a política versiona data; o suporte é guia vivo, e carimbar data nele
+sugeriria validade jurídica que ele não tem.
+
+> ⚠️ **Pendências antes de valer em produção:** o texto da política precisa de revisão jurídica, e
+> `admin@salalivre.app` precisa ser confirmado como caixa monitorada — por quem, e com que prazo de resposta.
+
+---
+
 ## 📱 Aplicativo instalável (PWA)
 
 Desde **2026-08-30** o painel pode ser instalado no celular: ícone próprio na tela de início, abertura em
@@ -2181,7 +2247,13 @@ Divergências deliberadas em relação ao design original:
   leitor de tela. No painel do login o `brightness-0 invert` pinta o traço de branco, e isso **depende de o
   PNG ter fundo transparente**: com fundo opaco vira um retângulo branco sólido.
 - Ícones lucide substituem os glifos tipográficos (`⌁ ◷ ⎙ ◳`) dos cards de diferenciais.
-- Os contadores da prévia do painel são derivados dos dados, não literais.
+- **A prévia do painel deixou de ser mockup.** Eram 144 linhas de JSX que imitavam a tela — um tipo
+  `ComputerStatus`, um mapa `statusStyles` com seis variações por estado e oito computadores fictícios. Todo
+  esse código envelhecia a cada mudança no painel real, sem nenhum teste para avisar. Hoje é um `next/image`
+  com o print de verdade (`public/assets/sala-livre-content.png`), `priority` por ser o LCP da landing e com
+  `sizes` declarado. **Sem `quality`:** no Next 16 o default de `images.qualities` é `[75]`, e um valor fora
+  da lista é coagido em silêncio para o mais próximo — o `quality={100}` que existia pedia 100 e recebia 75,
+  calado. Para valer, teria de entrar `images.qualities: [75, 100]` no `next.config.ts`.
 - Paleta traduzida para tokens: destaque `rose-700`, disponível `green-600`, manutenção `slate-500`. O
   `amber-500` entrou depois, e não como quarto estado: é o tom de "funciona, mas há algo a saber" — as
   faixas de degradação e a estação offline.

@@ -38,13 +38,16 @@
       não nomeia instituição: ele envelheceria em silêncio na troca, anunciando o nome errado a quem usa
       leitor de tela
 - [x] Hero com badge, título, subtítulo e chamada para o painel
-- [x] Prévia do painel com os três estados do computador (disponível / em uso / manutenção)
+- [x] Prévia do painel — deixou de ser mockup em JSX (144 linhas de interface falsa) e passou a ser o print
+      real do painel, `priority` por ser o LCP e com `sizes` declarado
 - [x] Seção de diferenciais (4 cards)
 - [x] Rodapé com copyright e navegação
 - [x] Responsividade mobile-first em todas as seções
 - [x] Página 404 (`not-found.tsx`) na identidade do produto, reaproveitando cabeçalho e rodapé, com retorno
       pelo histórico e destino alternativo quando não há histórico
-- [ ] Rotas do rodapé: `/privacidade`, `/suporte`, `/status` — hoje caem na 404
+- [x] Rotas do rodapé — `/privacy` e `/support` construídas (URL em inglês, a convenção do repositório).
+      `/status` **descartada**: sem monitoramento externo, uma página servida pelo próprio domínio não
+      consegue reportar a própria queda; saiu do rodapé **e** de `PUBLIC_ROUTES`, onde era uma 404 pública
 - [ ] Conferência em viewport real (320px / 768px / 1440px)
 - [ ] Validação de contraste dos estados
 
@@ -454,6 +457,31 @@
       **não existe**: esse caminho só responde ao `PATCH`, e é a edição do cadastro. O disparo é
       `POST /computers/update-app/:id`. O botão devolvia `404 Rota não encontrada` em produção, com os
       cabeçalhos `X-Ratelimit-*` na resposta provando que a requisição chegava à API e morria no roteador
+
+---
+
+## 11. Páginas públicas de texto
+
+- [x] `/privacy` — política de privacidade em dez seções, escrita sobre os dados que o schema da `api-fr`
+      realmente guarda (CPF, data de nascimento, inscrição profissional, situação cadastral, histórico de
+      sessão por computador e os arquivos de impressão), e não sobre modelo genérico de "cookies e navegação"
+- [x] MAC do equipamento nomeado explicitamente: sozinho é identificador de máquina, mas cruzado com o
+      histórico de sessões permite reconstruir quem usou o quê
+- [x] Validação cadastral contra sistema externo dita com todas as letras — transferência para terceiro é o
+      que o titular tem direito de saber sem perguntar
+- [x] Direitos do titular citando a Lei nº 13.709/2018, com data de última atualização na página
+- [x] `/support` — guia de atendimento com a parte 1 titulada pela **situação que a pessoa vê na tela**,
+      espelhando uma a uma as recusas de liberação da `api-fr`; o que varia por instalação (cota, tempo de
+      sessão, condições extras) fica como "conforme as regras do ambiente", sem número cravado
+- [x] Casca comum em `components/app/legal-page.tsx`, reaproveitando `Header`, `Footer` e `GridOverlay` —
+      quem chega pelo rodapé continua dentro do site. Sem `@tailwindcss/typography`: alinhar o `prose` à
+      escala da landing custaria mais do que os seis blocos que existem
+- [x] E-mail de atendimento numa constante única (`src/constants/contact.ts`) e em bloco destacado —
+      divergir entre as páginas manda o titular para uma caixa que ninguém lê
+- [x] `/status` descartada e removida de `PUBLIC_ROUTES`: sem monitoramento externo, a página cairia junto
+      com o que deveria monitorar. A saúde da API já é mostrada onde serve, no selo do cabeçalho do painel
+- [ ] ⚖️ Revisão jurídica do texto da política antes de valer em produção
+- [ ] 📬 Confirmar `admin@salalivre.app` como caixa monitorada — por quem, e com que prazo de resposta
 
 ---
 
